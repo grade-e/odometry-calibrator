@@ -22,7 +22,8 @@ configured odom topic subscription은 ROS 2 sensor-data QoS를 사용한다. 따
 ## 빌드
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+export ROS_DISTRO=${ROS_DISTRO:-humble}
+source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --packages-select odometry_calibrator
 source install/setup.bash
 ```

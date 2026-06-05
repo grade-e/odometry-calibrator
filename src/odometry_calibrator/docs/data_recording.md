@@ -17,7 +17,8 @@ recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. �
 ## 기본 실행
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+export ROS_DISTRO=${ROS_DISTRO:-humble}
+source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --packages-select odometry_calibrator
 source install/setup.bash
 ros2 launch odometry_calibrator data_recording.launch.py

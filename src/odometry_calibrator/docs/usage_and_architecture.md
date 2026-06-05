@@ -73,7 +73,8 @@ src/odometry_calibrator/
 워크스페이스 루트에서 실행한다.
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+export ROS_DISTRO=${ROS_DISTRO:-humble}
+source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --packages-select odometry_calibrator
 source install/setup.bash
 ```
