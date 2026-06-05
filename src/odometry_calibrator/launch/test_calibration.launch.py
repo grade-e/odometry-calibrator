@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from launch import LaunchDescription
+from launch.actions import TimerAction
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -22,6 +23,7 @@ def generate_launch_description():
     params_file = PathJoinSubstitution(
         [FindPackageShare('odometry_calibrator'), 'config', 'odom_linear_calibration.yaml']
     )
+    smoke_overrides = {'odom_topic': '/odometry_calibrator/mock_odom'}
 
     return LaunchDescription(
         [
@@ -30,15 +32,20 @@ def generate_launch_description():
                 executable='mock_odom_publisher',
                 name='mock_odom_publisher',
                 output='screen',
-                parameters=[params_file],
+                parameters=[params_file, smoke_overrides],
             ),
-            Node(
-                package='odometry_calibrator',
-                executable='odom_linear_calibrator',
-                name='odom_linear_calibrator',
-                output='screen',
-                emulate_tty=True,
-                parameters=[params_file],
+            TimerAction(
+                period=1.0,
+                actions=[
+                    Node(
+                        package='odometry_calibrator',
+                        executable='odom_linear_calibrator',
+                        name='odom_linear_calibrator',
+                        output='screen',
+                        emulate_tty=True,
+                        parameters=[params_file, smoke_overrides],
+                    ),
+                ],
             ),
         ]
     )

@@ -16,7 +16,9 @@ import math
 
 from nav_msgs.msg import Odometry
 from odometry_calibrator.axis import normalize_axis
+from odometry_calibrator.axis import normalize_direction
 from odometry_calibrator.axis import VALID_AXES
+from odometry_calibrator.axis import VALID_DIRECTIONS
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
@@ -41,6 +43,8 @@ class MockOdomPublisher(Node):
         self.odom_topic = self.declare_parameter('odom_topic', '/odom').value
         axis_descriptor = ParameterDescriptor(dynamic_typing=True)
         self.mock_axis = self.declare_parameter('mock_axis', 'x', axis_descriptor).value
+        direction_descriptor = ParameterDescriptor(dynamic_typing=True)
+        self.direction = self.declare_parameter('direction', 1, direction_descriptor).value
         self.publish_rate_hz = self.declare_parameter('publish_rate_hz', 20.0).value
         self.mock_speed = self.declare_parameter('mock_speed', 0.02).value
         self.x = self.declare_parameter('start_x', 0.0).value
@@ -71,16 +75,23 @@ class MockOdomPublisher(Node):
         self.mock_axis = normalize_axis(self.mock_axis)
         if self.mock_axis not in VALID_AXES:
             raise RuntimeError("mock_axis must be either 'x' or 'y'")
+        try:
+            self.direction = normalize_direction(self.direction)
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
+        if self.direction not in VALID_DIRECTIONS:
+            raise RuntimeError('direction must be 1 or -1')
 
     def _publish_odom(self):
         current_time = self.get_clock().now()
         dt = max((current_time - self.last_publish_time).nanoseconds * 1.0e-9, 0.0)
         self.last_publish_time = current_time
 
+        signed_speed = self.direction * self.mock_speed
         if self.mock_axis == 'x':
-            self.x += self.mock_speed * dt
+            self.x += signed_speed * dt
         else:
-            self.y += self.mock_speed * dt
+            self.y += signed_speed * dt
 
         odom = Odometry()
         odom.header.stamp = current_time.to_msg()
@@ -94,9 +105,9 @@ class MockOdomPublisher(Node):
         odom.pose.pose.orientation.z = 0.0
         odom.pose.pose.orientation.w = 1.0
         if self.mock_axis == 'x':
-            odom.twist.twist.linear.x = self.mock_speed
+            odom.twist.twist.linear.x = signed_speed
         else:
-            odom.twist.twist.linear.y = self.mock_speed
+            odom.twist.twist.linear.y = signed_speed
 
         self.odom_pub.publish(odom)
 
@@ -106,6 +117,8 @@ def main(args=None):
     node = MockOdomPublisher()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
         node.destroy_node()
         if rclpy.ok():

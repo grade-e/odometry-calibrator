@@ -12,19 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.axis import normalize_axis
-from odometry_calibrator.axis import OdomDistanceCalculator
+from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
+import pytest
 
 
-def test_odom_distance_calculator_uses_selected_axis():
-    calculator = OdomDistanceCalculator()
-    calculator.set_start(1.0, 2.0)
-
-    assert calculator.displacement_from_start(1.7, 5.0, 'x') == 0.7
-    assert calculator.displacement_from_start(1.7, 5.0, 'y') == 3.0
+def test_parse_measurement_accepts_valid_distances():
+    assert CliMeasurementProvider.parse_measurement('1.0') == 1.0
+    assert CliMeasurementProvider.parse_measurement('0.985') == 0.985
 
 
-def test_axis_normalization_accepts_ros_yaml_boolean_y():
-    assert normalize_axis(True) == 'y'
-    assert normalize_axis(False) == 'x'
-    assert normalize_axis('Y') == 'y'
+@pytest.mark.parametrize('value', ['abc', '-1.0', '0', '', 'nan', 'inf', '11.0'])
+def test_parse_measurement_rejects_invalid_distances(value):
+    assert CliMeasurementProvider.parse_measurement(value) is None

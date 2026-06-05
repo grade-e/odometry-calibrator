@@ -1,9 +1,10 @@
 odom_linear_calibrator:
   ros__parameters:
     axis: "x"
+    direction: 1
     odom_topic: /odom
     cmd_vel_topic: /cmd_vel
-    target_distance: 1.0
+    target_distance: 0.5
     distance_tolerance: 0.005
     kp: 0.4
     max_velocity: 0.1
@@ -11,14 +12,15 @@ odom_linear_calibrator:
     max_acceleration: 0.05
     control_rate_hz: 20.0
     stop_publish_rate_hz: 10.0
-    motion_timeout_sec: 30.0
+    motion_timeout_sec: 20.0
     keep_alive_after_done: true
 
 mock_odom_publisher:
   ros__parameters:
     odom_topic: /odom
     mock_axis: "x"
+    direction: 1
     publish_rate_hz: 20.0
-    mock_speed: 0.02
+    mock_speed: 0.05
     start_x: 0.0
     start_y: 0.0

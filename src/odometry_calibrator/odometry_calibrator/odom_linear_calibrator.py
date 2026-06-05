@@ -20,8 +20,11 @@ from threading import Lock
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from odometry_calibrator.axis import normalize_axis
+from odometry_calibrator.axis import normalize_direction
 from odometry_calibrator.axis import OdomDistanceCalculator
+from odometry_calibrator.axis import signed_linear_components
 from odometry_calibrator.axis import VALID_AXES
+from odometry_calibrator.axis import VALID_DIRECTIONS
 from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
@@ -53,6 +56,7 @@ class State(Enum):
 @dataclass
 class Parameters:
     axis: str = 'x'
+    direction: int = 1
     odom_topic: str = '/odom'
     cmd_vel_topic: str = '/cmd_vel'
     target_distance: float = 1.0
@@ -85,6 +89,7 @@ class OdomLinearCalibrator(Node):
         self._last_cmd_velocity = 0.0
         self._calculation_done = False
         self._last_nonfinite_warn_ns = 0
+        self._last_reverse_motion_warn_ns = 0
 
         self._cmd_vel_pub = self.create_publisher(Twist, self._params.cmd_vel_topic, 10)
         self._odom_sub = self.create_subscription(
@@ -111,7 +116,7 @@ class OdomLinearCalibrator(Node):
         values = {}
         for name, default in defaults.__dict__.items():
             descriptor = None
-            if name == 'axis':
+            if name in ('axis', 'direction'):
                 descriptor = ParameterDescriptor(dynamic_typing=True)
             self.declare_parameter(name, default, descriptor)
             values[name] = self.get_parameter(name).value
@@ -139,6 +144,13 @@ class OdomLinearCalibrator(Node):
         self._params.axis = normalize_axis(self._params.axis)
         if self._params.axis not in VALID_AXES:
             raise RuntimeError("axis must be either 'x' or 'y'")
+
+        try:
+            self._params.direction = normalize_direction(self._params.direction)
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
+        if self._params.direction not in VALID_DIRECTIONS:
+            raise RuntimeError('direction must be 1 or -1')
 
         if self._params.distance_tolerance >= self._params.target_distance:
             self.get_logger().warning(
@@ -168,7 +180,10 @@ class OdomLinearCalibrator(Node):
                     y,
                     self._params.axis,
                 )
-                self._current_odom_distance = abs(odom_displacement)
+                directed_displacement = self._params.direction * odom_displacement
+                if directed_displacement < -self._params.distance_tolerance:
+                    self._warn_reverse_motion(directed_displacement)
+                self._current_odom_distance = max(directed_displacement, 0.0)
 
         if self._state == State.INIT:
             with self._odom_lock:
@@ -183,6 +198,15 @@ class OdomLinearCalibrator(Node):
         if now_ns - self._last_nonfinite_warn_ns >= 2_000_000_000:
             self.get_logger().warning('Ignoring non-finite odometry pose')
             self._last_nonfinite_warn_ns = now_ns
+
+    def _warn_reverse_motion(self, directed_displacement):
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_reverse_motion_warn_ns >= 2_000_000_000:
+            self.get_logger().warning(
+                'Odometry moved opposite to requested direction on %s axis: %.6f m'
+                % (self._params.axis, directed_displacement)
+            )
+            self._last_reverse_motion_warn_ns = now_ns
 
     def _control_timer_callback(self):
         current_time = self.get_clock().now()
@@ -290,10 +314,11 @@ class OdomLinearCalibrator(Node):
 
     def _publish_velocity(self, linear_velocity):
         cmd = Twist()
-        if self._params.axis == 'x':
-            cmd.linear.x = linear_velocity
-        else:
-            cmd.linear.y = linear_velocity
+        cmd.linear.x, cmd.linear.y = signed_linear_components(
+            self._params.axis,
+            self._params.direction,
+            linear_velocity,
+        )
         cmd.angular.z = 0.0
         self._cmd_vel_pub.publish(cmd)
 
@@ -323,6 +348,8 @@ def main(args=None):
     node = OdomLinearCalibrator()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
         if hasattr(node._measurement_provider, 'stop'):
             node._measurement_provider.stop()

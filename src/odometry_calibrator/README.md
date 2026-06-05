@@ -2,11 +2,11 @@
 
 ROS 2 Python package for straight-line odometry scale calibration.
 
-Omni drive robots can calibrate x-axis and y-axis odometry independently.
+Omni drive robots can calibrate +x, -x, +y, and -y odometry independently.
 
 ## Concept
 
-The `odom_linear_calibrator` node moves the robot along one selected linear axis, reads `/odom`, waits for the operator to enter the actual measured travel distance, then calculates:
+The `odom_linear_calibrator` node moves the robot along one selected linear axis and direction, reads `/odom`, waits for the operator to enter the actual measured travel distance, then calculates:
 
 ```text
 K_x = D_actual / D_odom_x
@@ -34,47 +34,42 @@ ros2 run odometry_calibrator odom_linear_calibrator
 ros2 run odometry_calibrator mock_odom_publisher
 ```
 
-## X-Axis Calibration
+## Direction Examples
 
-Moves with:
-
-```text
-/cmd_vel.linear.x
-```
-
-Calculates:
-
-```text
-K_x = D_actual / D_odom_x
-```
-
-Run:
++x direction:
 
 ```bash
-ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=x
+ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=x -p direction:=1
 ```
 
-## Y-Axis Calibration
-
-Moves with:
-
-```text
-/cmd_vel.linear.y
-```
-
-Calculates:
-
-```text
-K_y = D_actual / D_odom_y
-```
-
-Run:
+-x direction:
 
 ```bash
-ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y
+ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=x -p direction:=-1
 ```
 
-ROS 2 parameter parsing treats unquoted `y` as YAML boolean true; this node maps that value to the y axis. Quoted values are also supported in YAML files.
++y direction:
+
+```bash
+ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
+```
+
+-y direction:
+
+```bash
+ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=-1
+```
+
+The command velocity mapping is:
+
+```text
+axis: x, direction:  1  -> /cmd_vel.linear.x = +v_cmd
+axis: x, direction: -1  -> /cmd_vel.linear.x = -v_cmd
+axis: y, direction:  1  -> /cmd_vel.linear.y = +v_cmd
+axis: y, direction: -1  -> /cmd_vel.linear.y = -v_cmd
+```
+
+ROS 2 parameter parsing treats unquoted `y` as YAML boolean true; this node maps that value to the y axis. Use quoted values in YAML files, for example `axis: "y"`.
 
 ## Measurement Input
 
@@ -93,16 +88,16 @@ Enter actual measured distance [m]: 0.985
 Example output:
 
 ```text
-D_odom   : 1.000 m
-D_actual : 0.985 m
-K_x      : 0.985000
+D_odom   : 0.500 m
+D_actual : 0.492 m
+K_x      : 0.984000
 ```
 
 or:
 
 ```text
-D_odom   : 1.000 m
-D_actual : 0.972 m
+D_odom   : 0.500 m
+D_actual : 0.486 m
 K_y      : 0.972000
 ```
 
@@ -114,7 +109,8 @@ Defaults are provided in `config/odom_linear_calibration.yaml`.
 odom_topic: /odom
 cmd_vel_topic: /cmd_vel
 axis: "x"
-target_distance: 1.0
+direction: 1
+target_distance: 0.5
 distance_tolerance: 0.005
 kp: 0.4
 max_velocity: 0.1
@@ -122,8 +118,17 @@ min_velocity: 0.01
 max_acceleration: 0.05
 control_rate_hz: 20.0
 stop_publish_rate_hz: 10.0
-motion_timeout_sec: 30.0
+motion_timeout_sec: 20.0
 keep_alive_after_done: true
+```
+
+Mock smoke-test defaults:
+
+```yaml
+mock_axis: "x"
+direction: 1
+publish_rate_hz: 20.0
+mock_speed: 0.05
 ```
 
 ## Launch Mock Test
@@ -134,17 +139,19 @@ The package includes a mock odometry publisher for smoke testing.
 ros2 launch odometry_calibrator test_calibration.launch.py
 ```
 
+The mock launch overrides `odom_topic` to `/odometry_calibrator/mock_odom` so it does not mix with a real robot `/odom` publisher.
+
 For y-axis mock testing:
 
 ```bash
-ros2 run odometry_calibrator mock_odom_publisher --ros-args -p mock_axis:=y
-ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y
+ros2 run odometry_calibrator mock_odom_publisher --ros-args -p mock_axis:=y -p direction:=1
+ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
 ```
 
 ## Expected Flow
 
 1. `odom_linear_calibrator` waits for the first valid `/odom` sample and latches it as the start pose.
-2. The node publishes `/cmd_vel.linear.x` when `axis: x`, or `/cmd_vel.linear.y` when `axis: y`, with acceleration limiting.
+2. The node publishes signed `/cmd_vel.linear.x` or `/cmd_vel.linear.y` according to `axis` and `direction`, with acceleration limiting.
 3. Near the target distance, on timeout, or below minimum commanded velocity, it transitions to `WAIT_FOR_MEASUREMENT`.
 4. While waiting, the node continuously publishes zero velocity at least 10 Hz.
 5. Enter a measured distance in meters:
@@ -161,3 +168,15 @@ Enter actual measured distance [m]: 0.985
 - Calibrate on a flat surface with enough clearance.
 - Use a consistent robot reference point when measuring `D_actual`.
 - Keep motion slow enough to reduce slip and overshoot.
+
+## Safety Checklist Before Real Robot Test
+
+- Verify behavior with the mock launch before connecting to a real AMR.
+- Confirm that `/cmd_vel` matches the real robot control topic.
+- Confirm that `/odom` matches the real wheel odometry topic.
+- Confirm that the `axis` and `direction` combination matches the intended travel direction.
+- Prepare an emergency stop or another manual stop method.
+- Secure a straight driving space longer than `target_distance`.
+- Start with conservative `max_velocity` and `max_acceleration` values.
+- First check command direction with wheels lifted or at very low speed.
+- Confirm that `/cmd_vel` is continuously published as zero while in `WAIT_FOR_MEASUREMENT`.

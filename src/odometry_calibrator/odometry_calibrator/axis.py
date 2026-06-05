@@ -13,12 +13,32 @@
 # limitations under the License.
 
 VALID_AXES = ('x', 'y')
+VALID_DIRECTIONS = (1, -1)
 
 
 def normalize_axis(axis):
     if isinstance(axis, bool):
         return 'y' if axis else 'x'
     return str(axis).lower()
+
+
+def normalize_direction(value):
+    if isinstance(value, bool):
+        raise ValueError('direction must be 1 or -1, not bool')
+    try:
+        direction = int(value)
+    except (TypeError, ValueError):
+        raise ValueError('direction must be 1 or -1') from None
+    if direction not in VALID_DIRECTIONS:
+        raise ValueError('direction must be 1 or -1')
+    return direction
+
+
+def signed_linear_components(axis, direction, velocity):
+    signed_velocity = direction * velocity
+    if axis == 'x':
+        return signed_velocity, 0.0
+    return 0.0, signed_velocity
 
 
 class OdomDistanceCalculator:
