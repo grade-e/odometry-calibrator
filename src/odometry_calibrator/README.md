@@ -10,6 +10,8 @@ K_linear = D_actual / D_odom
 
 The measurement input is behind a `MeasurementProvider` interface. The initial implementation uses `CliMeasurementProvider`; a future marker-based provider can be added without coupling it to the calibration node.
 
+The `/odom` subscription uses ROS 2 sensor-data QoS so it can connect to best-effort odometry publishers commonly used on robots. The `/cmd_vel` publisher keeps the default reliable QoS.
+
 ## Nodes
 
 ```bash

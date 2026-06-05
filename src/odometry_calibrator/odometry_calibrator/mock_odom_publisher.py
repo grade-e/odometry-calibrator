@@ -17,6 +17,18 @@ import math
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy
+from rclpy.qos import HistoryPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
+
+
+ODOM_QOS = QoSProfile(
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
 
 
 class MockOdomPublisher(Node):
@@ -31,7 +43,11 @@ class MockOdomPublisher(Node):
 
         self._validate_parameters()
 
-        self.odom_pub = self.create_publisher(Odometry, self.odom_topic, 10)
+        self.odom_pub = self.create_publisher(
+            Odometry,
+            self.odom_topic,
+            ODOM_QOS,
+        )
         self.last_publish_time = self.get_clock().now()
         self.timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_odom)
 

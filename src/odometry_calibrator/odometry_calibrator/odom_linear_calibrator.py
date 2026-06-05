@@ -22,9 +22,19 @@ from nav_msgs.msg import Odometry
 from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy
+from rclpy.qos import HistoryPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
 
 
 MINIMUM_ODOM_DISTANCE_FOR_SCALE = 1.0e-6
+ODOM_QOS = QoSProfile(
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
 
 
 class State(Enum):
@@ -96,7 +106,7 @@ class OdomLinearCalibrator(Node):
             Odometry,
             self._params.odom_topic,
             self._odom_callback,
-            10,
+            ODOM_QOS,
         )
         self._control_timer = self.create_timer(
             1.0 / self._params.control_rate_hz,
