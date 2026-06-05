@@ -1,5 +1,6 @@
 odom_linear_calibrator:
   ros__parameters:
+    axis: "x"
     odom_topic: /odom
     cmd_vel_topic: /cmd_vel
     target_distance: 1.0
@@ -16,6 +17,7 @@ odom_linear_calibrator:
 mock_odom_publisher:
   ros__parameters:
     odom_topic: /odom
+    mock_axis: "x"
     publish_rate_hz: 20.0
     mock_speed: 0.02
     start_x: 0.0

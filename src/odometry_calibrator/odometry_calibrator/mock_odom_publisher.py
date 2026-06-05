@@ -15,6 +15,9 @@
 import math
 
 from nav_msgs.msg import Odometry
+from odometry_calibrator.axis import normalize_axis
+from odometry_calibrator.axis import VALID_AXES
+from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
@@ -36,6 +39,8 @@ class MockOdomPublisher(Node):
         super().__init__('mock_odom_publisher')
 
         self.odom_topic = self.declare_parameter('odom_topic', '/odom').value
+        axis_descriptor = ParameterDescriptor(dynamic_typing=True)
+        self.mock_axis = self.declare_parameter('mock_axis', 'x', axis_descriptor).value
         self.publish_rate_hz = self.declare_parameter('publish_rate_hz', 20.0).value
         self.mock_speed = self.declare_parameter('mock_speed', 0.02).value
         self.x = self.declare_parameter('start_x', 0.0).value
@@ -63,13 +68,19 @@ class MockOdomPublisher(Node):
             raise RuntimeError('mock_speed must be finite')
         if not math.isfinite(self.x) or not math.isfinite(self.y):
             raise RuntimeError('start_x and start_y must be finite')
+        self.mock_axis = normalize_axis(self.mock_axis)
+        if self.mock_axis not in VALID_AXES:
+            raise RuntimeError("mock_axis must be either 'x' or 'y'")
 
     def _publish_odom(self):
         current_time = self.get_clock().now()
         dt = max((current_time - self.last_publish_time).nanoseconds * 1.0e-9, 0.0)
         self.last_publish_time = current_time
 
-        self.x += self.mock_speed * dt
+        if self.mock_axis == 'x':
+            self.x += self.mock_speed * dt
+        else:
+            self.y += self.mock_speed * dt
 
         odom = Odometry()
         odom.header.stamp = current_time.to_msg()
@@ -82,7 +93,10 @@ class MockOdomPublisher(Node):
         odom.pose.pose.orientation.y = 0.0
         odom.pose.pose.orientation.z = 0.0
         odom.pose.pose.orientation.w = 1.0
-        odom.twist.twist.linear.x = self.mock_speed
+        if self.mock_axis == 'x':
+            odom.twist.twist.linear.x = self.mock_speed
+        else:
+            odom.twist.twist.linear.y = self.mock_speed
 
         self.odom_pub.publish(odom)
 

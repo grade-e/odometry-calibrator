@@ -19,7 +19,11 @@ from threading import Lock
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from odometry_calibrator.axis import normalize_axis
+from odometry_calibrator.axis import OdomDistanceCalculator
+from odometry_calibrator.axis import VALID_AXES
 from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
+from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
@@ -48,6 +52,7 @@ class State(Enum):
 
 @dataclass
 class Parameters:
+    axis: str = 'x'
     odom_topic: str = '/odom'
     cmd_vel_topic: str = '/cmd_vel'
     target_distance: float = 1.0
@@ -60,26 +65,6 @@ class Parameters:
     stop_publish_rate_hz: float = 10.0
     motion_timeout_sec: float = 30.0
     keep_alive_after_done: bool = True
-
-
-class OdomDistanceCalculator:
-    def __init__(self):
-        self._has_start = False
-        self._start_x = 0.0
-        self._start_y = 0.0
-
-    def set_start(self, x, y):
-        self._start_x = x
-        self._start_y = y
-        self._has_start = True
-
-    def has_start(self):
-        return self._has_start
-
-    def distance_from_start(self, x, y):
-        if not self._has_start:
-            return 0.0
-        return math.hypot(x - self._start_x, y - self._start_y)
 
 
 class OdomLinearCalibrator(Node):
@@ -125,7 +110,10 @@ class OdomLinearCalibrator(Node):
         defaults = Parameters()
         values = {}
         for name, default in defaults.__dict__.items():
-            self.declare_parameter(name, default)
+            descriptor = None
+            if name == 'axis':
+                descriptor = ParameterDescriptor(dynamic_typing=True)
+            self.declare_parameter(name, default, descriptor)
             values[name] = self.get_parameter(name).value
         return Parameters(**values)
 
@@ -147,6 +135,10 @@ class OdomLinearCalibrator(Node):
 
         if self._params.min_velocity > self._params.max_velocity:
             raise RuntimeError('min_velocity must be less than or equal to max_velocity')
+
+        self._params.axis = normalize_axis(self._params.axis)
+        if self._params.axis not in VALID_AXES:
+            raise RuntimeError("axis must be either 'x' or 'y'")
 
         if self._params.distance_tolerance >= self._params.target_distance:
             self.get_logger().warning(
@@ -171,7 +163,12 @@ class OdomLinearCalibrator(Node):
 
         with self._odom_lock:
             if self._distance_calculator.has_start():
-                self._current_odom_distance = self._distance_calculator.distance_from_start(x, y)
+                odom_displacement = self._distance_calculator.displacement_from_start(
+                    x,
+                    y,
+                    self._params.axis,
+                )
+                self._current_odom_distance = abs(odom_displacement)
 
         if self._state == State.INIT:
             with self._odom_lock:
@@ -275,24 +272,28 @@ class OdomLinearCalibrator(Node):
         )
         if odom_distance <= MINIMUM_ODOM_DISTANCE_FOR_SCALE:
             self.get_logger().error(
-                f'Cannot calculate K_linear because D_odom is too small: {odom_distance:.9f} m'
+                f'Cannot calculate K_{self._params.axis} because D_odom is too small: '
+                f'{odom_distance:.9f} m'
             )
             return
 
         actual_distance = self._measurement_provider.get_measurement()
-        k_linear = actual_distance / odom_distance
+        k_axis = actual_distance / odom_distance
 
         print(f'D_odom   : {odom_distance:.3f} m')
         print(f'D_actual : {actual_distance:.3f} m')
-        print(f'K_linear : {k_linear:.6f}')
+        print(f'K_{self._params.axis}     : {k_axis:.6f}')
 
         self.get_logger().info(
-            f'Linear odometry scale factor calculated: K_linear={k_linear:.6f}'
+            f'Linear odometry scale factor calculated: K_{self._params.axis}={k_axis:.6f}'
         )
 
-    def _publish_velocity(self, linear_x):
+    def _publish_velocity(self, linear_velocity):
         cmd = Twist()
-        cmd.linear.x = linear_x
+        if self._params.axis == 'x':
+            cmd.linear.x = linear_velocity
+        else:
+            cmd.linear.y = linear_velocity
         cmd.angular.z = 0.0
         self._cmd_vel_pub.publish(cmd)
 
