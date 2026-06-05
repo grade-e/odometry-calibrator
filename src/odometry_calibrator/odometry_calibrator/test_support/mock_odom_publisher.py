@@ -40,7 +40,7 @@ ODOM_QOS = QoSProfile(
 
 class MockOdomPublisher(Node):
     def __init__(self):
-        super().__init__('mock_odom_publisher')
+        super().__init__('test_mock_odom_publisher')
 
         self.odom_topic = self.declare_parameter('odom_topic', '/odom').value
         axis_descriptor = ParameterDescriptor(dynamic_typing=True)

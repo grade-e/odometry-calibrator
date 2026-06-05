@@ -29,7 +29,7 @@ By default, CSV files are saved under:
 logs/motion_<timestamp>.csv
 ```
 
-When only `mock_odom_publisher` is running, command velocity columns can remain zero because no node is publishing `/cmd_vel`. The mock odometry publisher is a fixed-speed odometry source, not a closed-loop robot model, so it keeps increasing odometry until the mock node is stopped.
+When only `test_mock_odom_publisher` is running, command velocity columns can remain zero because no node is publishing `/cmd_vel`. The test mock odometry publisher is a smoke-test support executable and fixed-speed odometry source, not a robot simulator or closed-loop robot model, so it keeps increasing odometry until the mock node is stopped.
 
 To override parameters:
 

@@ -29,8 +29,8 @@ def generate_launch_description():
         [
             Node(
                 package='odometry_calibrator',
-                executable='mock_odom_publisher',
-                name='mock_odom_publisher',
+                executable='test_mock_odom_publisher',
+                name='test_mock_odom_publisher',
                 output='screen',
                 parameters=[params_file, smoke_overrides],
             ),

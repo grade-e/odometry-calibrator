@@ -38,7 +38,7 @@ flowchart LR
 | Node | 역할 | publish | subscribe | 파일 출력 |
 | --- | --- | --- | --- | --- |
 | `odom_linear_calibrator` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` | configured odom topic | 없음 |
-| `mock_odom_publisher` | smoke test용 odometry 생성 | configured odom topic | 없음 | 없음 |
+| `test_mock_odom_publisher` | smoke test support용 fixed-speed odometry source | configured mock odom topic | 없음 | 없음 |
 | `motion_data_recorder` | command/odom/reference 데이터를 CSV로 기록 | 없음 | configured `/cmd_vel`, configured odom topic, optional reference pose | CSV |
 
 ## 디렉토리 구조
@@ -56,8 +56,10 @@ src/odometry_calibrator/
 │   └── data_recording.launch.py
 ├── odometry_calibrator/
 │   ├── odom_linear_calibrator.py
-│   ├── mock_odom_publisher.py
 │   ├── motion_data_recorder.py
+│   ├── test_support/
+│   │   ├── __init__.py
+│   │   └── mock_odom_publisher.py
 │   ├── axis.py
 │   ├── motion_metrics.py
 │   ├── pose_utils.py
@@ -88,7 +90,7 @@ ros2 launch odometry_calibrator test_calibration.launch.py
 
 ```mermaid
 sequenceDiagram
-    participant Mock as mock_odom_publisher
+    participant Mock as test_mock_odom_publisher
     participant Cal as odom_linear_calibrator
     participant Cmd as /cmd_vel topic
     participant User as Operator
@@ -230,7 +232,7 @@ K = D_actual / D_odom
 
 `motion_data_recorder`는 로봇을 움직이지 않는다. 실행 중인 robot, calibrator, simulator, rosbag replay가 publish하는 topic을 구독해 CSV로 저장한다.
 
-`mock_odom_publisher`만 함께 실행하는 경우 `/cmd_vel` publisher가 없으므로 `cmd_vx`, `cmd_vy`, `cmd_wz`는 0으로 유지될 수 있다. 또한 mock publisher는 `/cmd_vel`을 추종하는 closed-loop robot model이 아니라 일정 속도 odometry source이므로, mock을 계속 켜두면 calibrator가 정지한 뒤에도 odometry distance는 계속 증가한다.
+`test_mock_odom_publisher`만 함께 실행하는 경우 `/cmd_vel` publisher가 없으므로 `cmd_vx`, `cmd_vy`, `cmd_wz`는 0으로 유지될 수 있다. 또한 test mock publisher는 `/cmd_vel`을 추종하는 closed-loop robot model이 아니라 smoke test support용 fixed-speed odometry source이므로, mock을 계속 켜두면 calibrator가 정지한 뒤에도 odometry distance는 계속 증가한다.
 
 기본 실행:
 

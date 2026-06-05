@@ -15,7 +15,7 @@ odom_linear_calibrator:
     motion_timeout_sec: 20.0
     keep_alive_after_done: true
 
-mock_odom_publisher:
+test_mock_odom_publisher:
   ros__parameters:
     odom_topic: /odom
     mock_axis: "x"

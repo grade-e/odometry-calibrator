@@ -31,7 +31,7 @@ source install/setup.bash
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator
-ros2 run odometry_calibrator mock_odom_publisher
+ros2 run odometry_calibrator test_mock_odom_publisher
 ros2 run odometry_calibrator motion_data_recorder
 ```
 
@@ -143,18 +143,20 @@ mock_speed: 0.05
 
 ## Launch Mock Test
 
-The package includes a mock odometry publisher for smoke testing.
+The package includes `test_mock_odom_publisher` for smoke-test support. It publishes fixed-speed mock odometry, does not subscribe to `/cmd_vel`, and should not be treated as a robot simulator.
 
 ```bash
 ros2 launch odometry_calibrator test_calibration.launch.py
 ```
+
+The test calibration launch uses `test_mock_odom_publisher` internally.
 
 The mock launch overrides `odom_topic` to `/odometry_calibrator/mock_odom` so it does not mix with a real robot `/odom` publisher.
 
 For y-axis mock testing:
 
 ```bash
-ros2 run odometry_calibrator mock_odom_publisher --ros-args -p mock_axis:=y -p direction:=1
+ros2 run odometry_calibrator test_mock_odom_publisher --ros-args -p mock_axis:=y -p direction:=1
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
 ```
 
@@ -196,7 +198,7 @@ CSV files are written to `logs/` by default:
 logs/motion_20260605_203015.csv
 ```
 
-When recording only `mock_odom_publisher`, `cmd_vx`, `cmd_vy`, and `cmd_wz` can stay at zero because no `/cmd_vel` publisher is running. The mock odometry publisher emits odometry at a fixed speed and does not stop based on `/cmd_vel`; stop the recorder near the scenario endpoint when you want the summary distance to match the calibration target.
+When recording only `test_mock_odom_publisher`, `cmd_vx`, `cmd_vy`, and `cmd_wz` can stay at zero because no `/cmd_vel` publisher is running. The test mock odometry publisher emits odometry at a fixed speed and does not stop based on `/cmd_vel`; stop the recorder near the scenario endpoint when you want the summary distance to match the calibration target.
 
 Base CSV columns:
 
