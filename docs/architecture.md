@@ -52,8 +52,7 @@ flowchart LR
 │   ├── architecture.md
 │   ├── calibration.md
 │   ├── data_recording.md
-│   ├── troubleshooting.md
-│   └── usage_and_architecture.md
+│   └── troubleshooting.md
 └── src/
     └── odometry_calibrator/
         ├── config/

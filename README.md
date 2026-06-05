@@ -42,11 +42,14 @@ ros2 run odometry_calibrator motion_data_recorder
 
 ## 문서
 
-- 문서 안내: `docs/usage_and_architecture.md`
-- 구성과 내부 구조: `docs/architecture.md`
-- odometry calibration 절차: `docs/calibration.md`
-- motion data recording 상세: `docs/data_recording.md`
-- 진단과 문제 해결: `docs/troubleshooting.md`
+README는 문서 허브 역할을 한다. 필요한 주제에 따라 다음 문서를 보면 된다.
+
+| 문서 | 목적 |
+| --- | --- |
+| `docs/architecture.md` | 패키지 목적, 전체 구성, 노드 역할, 내부 module 구조 |
+| `docs/calibration.md` | mock smoke test, 실제 AMR calibration 절차, axis/direction, 결과 해석 |
+| `docs/data_recording.md` | motion_data_recorder 사용법, CSV 컬럼, reference pose, rosbag, PlotJuggler |
+| `docs/troubleshooting.md` | rqt_graph 확인, 파라미터 요약, 안전 체크리스트, 문제 해결 |
 
 ## 방향별 실행 예시
 
