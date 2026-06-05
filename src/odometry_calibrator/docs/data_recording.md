@@ -1,5 +1,7 @@
 # Motion Data Recording
 
+For the full package architecture and end-to-end workflows, see `usage_and_architecture.md`.
+
 ## Purpose
 
 `motion_data_recorder` records time-aligned command velocity, odometry, and optional reference pose data to CSV. It is intended for real AMR low-speed checks, calibrator runs, mock smoke tests, rosbag replay analysis, and future external reference comparisons.

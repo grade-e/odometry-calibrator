@@ -35,6 +35,11 @@ ros2 run odometry_calibrator mock_odom_publisher
 ros2 run odometry_calibrator motion_data_recorder
 ```
 
+## Documentation
+
+- Detailed usage and architecture: `docs/usage_and_architecture.md`
+- Motion data recording details: `docs/data_recording.md`
+
 ## Direction Examples
 
 +x direction:
