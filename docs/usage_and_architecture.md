@@ -17,20 +17,20 @@
 
 ```mermaid
 flowchart LR
-    Operator[작업자] -->|실측 거리 입력| Calibrator[odom_linear_calibrator]
+    operator["작업자"] -->|실측 거리 입력| calibrator["odom_linear_calibrator"]
 
-    Calibrator -->|Twist| CmdVel[/cmd_vel/]
-    Robot[AMR 또는 simulator] -->|Odometry| Odom[/odom 또는 configured odom topic/]
-    CmdVel --> Robot
-    Odom --> Calibrator
+    calibrator -->|Twist| cmd_vel["/cmd_vel"]
+    robot["AMR 또는 simulator"] -->|Odometry| odom["configured odom topic"]
+    cmd_vel --> robot
+    odom --> calibrator
 
-    CmdVel --> Recorder[motion_data_recorder]
-    Odom --> Recorder
-    Reference[Marker, Mocap, simulator GT] -. PoseStamped .-> RefTopic[/reference_pose/]
-    RefTopic -. optional .-> Recorder
+    cmd_vel --> recorder["motion_data_recorder"]
+    odom --> recorder
+    reference_source["Marker, Mocap, simulator GT"] -->|PoseStamped| reference_pose["/reference_pose"]
+    reference_pose -.-> recorder
 
-    Recorder --> CSV[(motion CSV)]
-    Calibrator --> Result[Scale factor result]
+    recorder --> csv[("motion CSV")]
+    calibrator --> result["Scale factor result"]
 ```
 
 ## 노드 역할
@@ -107,19 +107,19 @@ ros2 launch odometry_calibrator test_calibration.launch.py
 sequenceDiagram
     participant Mock as test_mock_odom_publisher
     participant Cal as odom_linear_calibrator
-    participant Cmd as /cmd_vel topic
+    participant Cmd as cmd_vel topic
     participant User as 작업자
 
-    Note over Mock: fixed-speed odometry source; /cmd_vel을 subscribe하지 않음
-    Mock->>Cal: /odometry_calibrator/mock_odom
+    Note over Mock: fixed-speed odometry source; no cmd_vel subscription
+    Mock->>Cal: mock odom topic
     Cal->>Cal: latch start odom pose
-    Cal->>Cmd: /cmd_vel publish
-    Mock->>Cal: mock odom distance가 독립적으로 증가
-    Cal->>Cal: target 도달
-    Cal->>Cmd: zero /cmd_vel publish
-    Cal->>User: 실제 측정 거리 입력 요청 [m]
+    Cal->>Cmd: publish velocity command
+    Mock->>Cal: mock odom distance increases independently
+    Cal->>Cal: target reached
+    Cal->>Cmd: publish zero velocity
+    Cal->>User: request actual measured distance
     User->>Cal: D_actual
-    Cal->>User: Axis, Direction, D_odom, D_actual, K 출력
+    Cal->>User: print Axis, Direction, D_odom, D_actual, K
 ```
 
 ## 실제 AMR Calibration 절차
@@ -177,18 +177,18 @@ YAML 파일에서는 `axis: "y"`처럼 quote를 권장한다. ROS 2 YAML parsing
 
 ```mermaid
 flowchart TD
-    Axis{axis}
-    Direction{direction}
-    Cmd[command velocity]
+    axis{"axis"}
+    direction{"direction"}
+    command["command velocity"]
 
-    Axis -->|x| X[linear.x]
-    Axis -->|y| Y[linear.y]
-    Direction -->|+1| Pos[positive velocity]
-    Direction -->|-1| Neg[negative velocity]
-    X --> Cmd
-    Y --> Cmd
-    Pos --> Cmd
-    Neg --> Cmd
+    axis -->|x| linear_x["linear.x"]
+    axis -->|y| linear_y["linear.y"]
+    direction -->|+1| positive["positive velocity"]
+    direction -->|-1| negative["negative velocity"]
+    linear_x --> command
+    linear_y --> command
+    positive --> command
+    negative --> command
 ```
 
 | axis | direction | command |
@@ -279,29 +279,29 @@ logs/calibration_x_pos_20260605_203015.csv
 
 ```mermaid
 flowchart TD
-    Start([Node 시작])
-    WaitOdom[첫 유효한 odom 대기]
-    LatchOdom[Latch start_odom_x, start_odom_y]
-    UseRef{use_reference_pose?}
-    WaitRef[첫 유효한 PoseStamped reference 대기]
-    LatchRef[Latch start_ref_x, start_ref_y]
-    Record[CSV recording 시작 및 recording start_time latch]
+    start(["Node 시작"])
+    wait_odom["첫 유효한 odom 대기"]
+    latch_odom["Latch start_odom_x, start_odom_y"]
+    use_ref{"use_reference_pose?"}
+    wait_ref["첫 유효한 PoseStamped reference 대기"]
+    latch_ref["Latch start_ref_x, start_ref_y"]
+    record["CSV recording 시작 및 recording start_time latch"]
 
-    Start --> WaitOdom --> LatchOdom --> UseRef
-    UseRef -->|false| Record
-    UseRef -->|true| WaitRef --> LatchRef --> Record
+    start --> wait_odom --> latch_odom --> use_ref
+    use_ref -->|false| record
+    use_ref -->|true| wait_ref --> latch_ref --> record
 ```
 
 Callback에서는 파일을 쓰지 않는다. 최신 message와 timestamp만 저장하고, timer callback에서 `record_rate_hz` 주기로 CSV row를 작성한다.
 
 ```mermaid
 flowchart LR
-    CmdCb[/cmd_vel callback/] --> Latest[최신 sample + Lock]
-    OdomCb[/odom callback/] --> Latest
-    RefCb[/reference_pose callback/] -. optional .-> Latest
-    Timer[record timer] --> Latest
-    Timer --> CsvWriter[CSV writer]
-    CsvWriter --> Csv[(CSV file)]
+    cmd_cb["cmd_vel callback"] --> latest["최신 sample + Lock"]
+    odom_cb["odom callback"] --> latest
+    ref_cb["reference_pose callback"] -.-> latest
+    timer["record timer"] --> latest
+    timer --> csv_writer["CSV writer"]
+    csv_writer --> csv[("CSV file")]
 ```
 
 ## Recorder CSV 컬럼
@@ -398,12 +398,16 @@ sequenceDiagram
     participant Rec as motion_data_recorder
     participant Cal as odom_linear_calibrator
     participant Robot as AMR
+    participant Cmd as cmd_vel topic
+    participant Odom as odom topic
     participant User as 작업자
 
-    Rec->>Robot: /cmd_vel 및 /odom 구독
-    Cal->>Robot: /cmd_vel publish
-    Robot->>Cal: /odom publish
-    Robot->>Rec: /odom publish
+    Cal->>Cmd: publish velocity command
+    Cmd->>Robot: robot receives command
+    Robot->>Odom: publish odometry
+    Odom->>Cal: calibrator receives odom
+    Odom->>Rec: recorder receives odom
+    Cmd->>Rec: recorder receives command
     Cal->>User: 정지 후 D_actual 입력 요청
     User->>Cal: 실측 거리 입력
     Cal->>User: K 결과 출력
