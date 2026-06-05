@@ -1,0 +1,16 @@
+motion_data_recorder:
+  ros__parameters:
+    odom_topic: /odom
+    cmd_vel_topic: /cmd_vel
+
+    use_reference_pose: false
+    reference_pose_topic: ""
+
+    axis: "x"
+    direction: 1
+    target_distance: 1.0
+
+    output_dir: "logs"
+    output_prefix: "motion"
+    record_rate_hz: 20.0
+    summary_on_shutdown: true

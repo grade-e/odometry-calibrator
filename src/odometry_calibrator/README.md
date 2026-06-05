@@ -32,6 +32,7 @@ source install/setup.bash
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator
 ros2 run odometry_calibrator mock_odom_publisher
+ros2 run odometry_calibrator motion_data_recorder
 ```
 
 ## Direction Examples
@@ -151,6 +152,84 @@ For y-axis mock testing:
 ros2 run odometry_calibrator mock_odom_publisher --ros-args -p mock_axis:=y -p direction:=1
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
 ```
+
+## Motion Data Recording
+
+`motion_data_recorder` is a separate node for recording motion data. It does not command the robot and does not calculate the final calibration scale factor. The role split is:
+
+```text
+odom_linear_calibrator
+- command one calibration move
+- wait for measured distance input
+- calculate K_x or K_y
+
+motion_data_recorder
+- subscribe to /cmd_vel and the configured odom topic
+- optionally subscribe to a PoseStamped reference pose topic
+- write CSV rows at a fixed rate
+- print a shutdown summary
+```
+
+Run with the default config:
+
+```bash
+ros2 launch odometry_calibrator data_recording.launch.py
+```
+
+Or run directly:
+
+```bash
+ros2 run odometry_calibrator motion_data_recorder --ros-args \
+  -p axis:=x \
+  -p direction:=1 \
+  -p target_distance:=0.5
+```
+
+CSV files are written to `logs/` by default:
+
+```text
+logs/motion_20260605_203015.csv
+```
+
+Base CSV columns:
+
+```csv
+time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance,remaining_distance
+```
+
+Reference pose recording can be enabled with a `geometry_msgs/msg/PoseStamped` topic:
+
+```bash
+ros2 run odometry_calibrator motion_data_recorder --ros-args \
+  -p use_reference_pose:=true \
+  -p reference_pose_topic:=/reference_pose
+```
+
+When reference pose recording is enabled, the CSV also includes:
+
+```csv
+ref_x,ref_y,ref_yaw,ref_distance,ref_axis_distance,odom_ref_error,error_rate,scale_estimate
+```
+
+Example summary:
+
+```text
+=== Motion Data Summary ===
+Axis                : x
+Direction           : +1
+Target distance     : 1.000 m
+Final odom distance : 1.003 m
+Axis distance       : 1.001 m
+Remaining distance  : -0.001 m
+Duration            : 10.84 s
+Max cmd velocity    : 0.100 m/s
+Avg cmd velocity    : 0.092 m/s
+CSV saved           : logs/motion_20260605_203015.csv
+```
+
+The recorder only writes CSV data and prints a summary. Visualization should be done with external tools such as PlotJuggler, spreadsheets, notebooks, or separate optional scripts.
+
+More details are in `docs/data_recording.md`.
 
 ## Expected Flow
 

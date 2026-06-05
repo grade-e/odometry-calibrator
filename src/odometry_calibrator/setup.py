@@ -28,6 +28,7 @@ setup(
         ('share/ament_index/resource_index/packages', [os.path.join('resource', package_name)]),
         (os.path.join('share', package_name), ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'docs'), glob('docs/*.md')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
@@ -43,6 +44,7 @@ setup(
         'console_scripts': [
             'odom_linear_calibrator = odometry_calibrator.odom_linear_calibrator:main',
             'mock_odom_publisher = odometry_calibrator.mock_odom_publisher:main',
+            'motion_data_recorder = odometry_calibrator.motion_data_recorder:main',
         ],
     },
 )
