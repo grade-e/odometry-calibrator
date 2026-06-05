@@ -29,6 +29,8 @@ By default, CSV files are saved under:
 logs/motion_<timestamp>.csv
 ```
 
+When only `mock_odom_publisher` is running, command velocity columns can remain zero because no node is publishing `/cmd_vel`. The mock odometry publisher is a fixed-speed odometry source, not a closed-loop robot model, so it keeps increasing odometry until the mock node is stopped.
+
 To override parameters:
 
 ```bash
@@ -64,6 +66,8 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args \
 The recorder starts writing rows only after it has latched the first odometry sample. If reference pose recording is enabled, it also waits for the first valid reference pose.
 
 `time_sec` is measured from the moment CSV recording actually starts. Distance origins are separate from the time origin: `odom_distance` is calculated from the first latched odometry pose, and `ref_distance` is calculated from the first latched reference pose.
+
+For mock-based calibration smoke tests, stop the recorder shortly after the calibrator reaches `DONE` if you want the recorder summary to stay close to `target_distance`. If the fixed-speed mock publisher continues running, odometry and summary distance will continue increasing even though `/cmd_vel` has returned to zero.
 
 ## CSV Columns
 

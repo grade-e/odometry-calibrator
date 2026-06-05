@@ -228,6 +228,8 @@ K = D_actual / D_odom
 
 `motion_data_recorder`는 로봇을 움직이지 않는다. 실행 중인 robot, calibrator, simulator, rosbag replay가 publish하는 topic을 구독해 CSV로 저장한다.
 
+`mock_odom_publisher`만 함께 실행하는 경우 `/cmd_vel` publisher가 없으므로 `cmd_vx`, `cmd_vy`, `cmd_wz`는 0으로 유지될 수 있다. 또한 mock publisher는 `/cmd_vel`을 추종하는 closed-loop robot model이 아니라 일정 속도 odometry source이므로, mock을 계속 켜두면 calibrator가 정지한 뒤에도 odometry distance는 계속 증가한다.
+
 기본 실행:
 
 ```bash

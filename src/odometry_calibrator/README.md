@@ -196,6 +196,8 @@ CSV files are written to `logs/` by default:
 logs/motion_20260605_203015.csv
 ```
 
+When recording only `mock_odom_publisher`, `cmd_vx`, `cmd_vy`, and `cmd_wz` can stay at zero because no `/cmd_vel` publisher is running. The mock odometry publisher emits odometry at a fixed speed and does not stop based on `/cmd_vel`; stop the recorder near the scenario endpoint when you want the summary distance to match the calibration target.
+
 Base CSV columns:
 
 ```csv
