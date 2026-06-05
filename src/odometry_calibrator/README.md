@@ -6,18 +6,18 @@ Omni drive robots can calibrate +x, -x, +y, and -y odometry independently.
 
 ## Concept
 
-The `odom_linear_calibrator` node moves the robot along one selected linear axis and direction, reads `/odom`, waits for the operator to enter the actual measured travel distance, then calculates:
+The `odom_linear_calibrator` node moves the robot along one selected linear axis and direction, reads odometry from the configured odom topic, waits for the operator to enter the actual measured travel distance, then calculates:
 
 ```text
 K_x = D_actual / D_odom_x
 K_y = D_actual / D_odom_y
 ```
 
-`/cmd_vel` is used only to move the robot. `/odom` is used to calculate the odometry-reported travel distance. `D_actual` must come from an external measurement, such as a tape measure, floor marks, marker tracking, or another ground-truth source.
+`/cmd_vel` is used only to move the robot. The configured odom topic is used to calculate the odometry-reported travel distance. `D_actual` must come from an external measurement, such as a tape measure, floor marks, marker tracking, or another ground-truth source.
 
 The measurement input is behind a `MeasurementProvider` interface. The initial implementation uses `CliMeasurementProvider`; a future marker-based provider can be added without coupling it to the calibration node.
 
-The `/odom` subscription uses ROS 2 sensor-data QoS so it can connect to best-effort odometry publishers commonly used on robots. The `/cmd_vel` publisher keeps the default reliable QoS.
+The configured odom topic subscription uses ROS 2 sensor-data QoS so it can connect to best-effort odometry publishers commonly used on robots. The `/cmd_vel` publisher keeps the default reliable QoS.
 
 ## Build
 
@@ -88,17 +88,21 @@ Enter actual measured distance [m]: 0.985
 Example output:
 
 ```text
-D_odom   : 0.500 m
-D_actual : 0.492 m
-K_x      : 0.984000
+Axis      : x
+Direction : +1
+D_odom    : 0.500 m
+D_actual  : 0.492 m
+K_x(+1)   : 0.984000
 ```
 
 or:
 
 ```text
-D_odom   : 0.500 m
-D_actual : 0.486 m
-K_y      : 0.972000
+Axis      : y
+Direction : -1
+D_odom    : 0.500 m
+D_actual  : 0.486 m
+K_y(-1)   : 0.972000
 ```
 
 ## Parameters
@@ -150,7 +154,7 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p dir
 
 ## Expected Flow
 
-1. `odom_linear_calibrator` waits for the first valid `/odom` sample and latches it as the start pose.
+1. `odom_linear_calibrator` waits for the first valid odometry sample on the configured odom topic and latches it as the start pose.
 2. The node publishes signed `/cmd_vel.linear.x` or `/cmd_vel.linear.y` according to `axis` and `direction`, with acceleration limiting.
 3. Near the target distance, on timeout, or below minimum commanded velocity, it transitions to `WAIT_FOR_MEASUREMENT`.
 4. While waiting, the node continuously publishes zero velocity at least 10 Hz.
@@ -160,7 +164,7 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p dir
 Enter actual measured distance [m]: 0.985
 ```
 
-6. The node prints `D_odom`, `D_actual`, and `K_x` or `K_y`.
+6. The node prints `Axis`, `Direction`, `D_odom`, `D_actual`, and `K_x(+/-1)` or `K_y(+/-1)`.
 
 ## Notes
 

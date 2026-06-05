@@ -26,6 +26,7 @@ from odometry_calibrator.axis import signed_linear_components
 from odometry_calibrator.axis import VALID_AXES
 from odometry_calibrator.axis import VALID_DIRECTIONS
 from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
+from odometry_calibrator.result import format_calibration_result
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
@@ -304,12 +305,17 @@ class OdomLinearCalibrator(Node):
         actual_distance = self._measurement_provider.get_measurement()
         k_axis = actual_distance / odom_distance
 
-        print(f'D_odom   : {odom_distance:.3f} m')
-        print(f'D_actual : {actual_distance:.3f} m')
-        print(f'K_{self._params.axis}     : {k_axis:.6f}')
+        print(format_calibration_result(
+            self._params.axis,
+            self._params.direction,
+            odom_distance,
+            actual_distance,
+            k_axis,
+        ))
 
         self.get_logger().info(
-            f'Linear odometry scale factor calculated: K_{self._params.axis}={k_axis:.6f}'
+            'Linear odometry scale factor calculated: '
+            f'axis={self._params.axis}, direction={self._params.direction}, K={k_axis:.6f}'
         )
 
     def _publish_velocity(self, linear_velocity):

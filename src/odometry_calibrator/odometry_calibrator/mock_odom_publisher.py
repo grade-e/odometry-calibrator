@@ -19,6 +19,7 @@ from odometry_calibrator.axis import normalize_axis
 from odometry_calibrator.axis import normalize_direction
 from odometry_calibrator.axis import VALID_AXES
 from odometry_calibrator.axis import VALID_DIRECTIONS
+from odometry_calibrator.parameters import validate_positive_finite
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
@@ -68,8 +69,10 @@ class MockOdomPublisher(Node):
     def _validate_parameters(self):
         if self.publish_rate_hz <= 0.0 or not math.isfinite(self.publish_rate_hz):
             raise RuntimeError('publish_rate_hz must be positive and finite')
-        if not math.isfinite(self.mock_speed):
-            raise RuntimeError('mock_speed must be finite')
+        try:
+            validate_positive_finite('mock_speed', self.mock_speed)
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
         if not math.isfinite(self.x) or not math.isfinite(self.y):
             raise RuntimeError('start_x and start_y must be finite')
         self.mock_axis = normalize_axis(self.mock_axis)
