@@ -113,10 +113,10 @@ flowchart TD
 
 | axis | direction | command |
 | --- | ---: | --- |
-| `x` | `1` | `/cmd_vel.linear.x = +v_cmd` |
-| `x` | `-1` | `/cmd_vel.linear.x = -v_cmd` |
-| `y` | `1` | `/cmd_vel.linear.y = +v_cmd` |
-| `y` | `-1` | `/cmd_vel.linear.y = -v_cmd` |
+| `x` | `1` | `/cmd_vel.twist.linear.x = +v_cmd` |
+| `x` | `-1` | `/cmd_vel.twist.linear.x = -v_cmd` |
+| `y` | `1` | `/cmd_vel.twist.linear.y = +v_cmd` |
+| `y` | `-1` | `/cmd_vel.twist.linear.y = -v_cmd` |
 
 거리 계산은 다음 기준이다.
 
@@ -137,11 +137,22 @@ stateDiagram-v2
     INIT --> MOVING_ACCEL_LIMIT: 첫 odom latch
     MOVING_ACCEL_LIMIT --> MOVING_P_CONTROL: velocity limit 근처 또는 초기 구간 경과
     MOVING_ACCEL_LIMIT --> WAIT_FOR_MEASUREMENT: target 도달 또는 timeout
-    MOVING_P_CONTROL --> WAIT_FOR_MEASUREMENT: target 도달, timeout, 또는 low velocity
+    MOVING_P_CONTROL --> WAIT_FOR_MEASUREMENT: target 도달 또는 timeout
     WAIT_FOR_MEASUREMENT --> CALCULATE: D_actual entered
     CALCULATE --> DONE: 결과 출력
     DONE --> [*]: keep_alive_after_done=false
 ```
+
+`P_CONTROL`은 명령 추종 제어가 아니라 odom 기준 남은 거리 feedback 제어이다. `control_mode`에 따라 command velocity 계산 방식이 달라진다.
+
+| `control_mode` | 의미 | 속도 계산 | 비고 |
+| --- | --- | --- | --- |
+| `constant` | 일반 정속 주행 | `max_velocity` | 목표 도달 전까지 일정 속도 명령 |
+| `p` | 순수 P 제어 | `clamp(kp * remaining, 0, max_velocity)` | `min_velocity`를 적용하지 않음 |
+| `p_min_clamped` | 최소속도 제한 P 제어 | `clamp(kp * remaining, min_velocity, max_velocity)` | 실사용 권장 기본값 |
+| `p_stop_threshold` | 기존 동작 호환 | `kp * remaining < min_velocity`이면 정지 | 조기 종료 비교용 |
+
+기본값은 `p_min_clamped`이다. 이 모드에서 `min_velocity`는 low-speed deadband를 피하기 위한 최소 주행 명령이며, 조기 종료 조건으로 사용하지 않는다.
 
 ## Calibration 결과 해석
 

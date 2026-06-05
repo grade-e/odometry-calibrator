@@ -20,7 +20,7 @@ from pathlib import Path
 from threading import Lock
 
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from odometry_calibrator.common.axis import normalize_axis
 from odometry_calibrator.common.axis import normalize_direction
@@ -131,7 +131,7 @@ class MotionDataRecorder(Node):
         self._closed = False
 
         self._cmd_sub = self.create_subscription(
-            Twist,
+            TwistStamped,
             self._params.cmd_vel_topic,
             self._cmd_vel_callback,
             10,
@@ -207,9 +207,9 @@ class MotionDataRecorder(Node):
     def _cmd_vel_callback(self, msg):
         with self._lock:
             self._latest_cmd = CmdSample(
-                vx=msg.linear.x,
-                vy=msg.linear.y,
-                wz=msg.angular.z,
+                vx=msg.twist.linear.x,
+                vy=msg.twist.linear.y,
+                wz=msg.twist.angular.z,
             )
 
     def _odom_callback(self, msg):

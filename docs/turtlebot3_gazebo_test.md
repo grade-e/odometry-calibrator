@@ -4,12 +4,12 @@
 
 이 검증의 목적은 wheel odometry scale 정확도를 평가하는 것이 아니다. 오픈소스 simulation 환경에서 다음 흐름이 실제로 연결되는지 확인하는 smoke/e2e test다.
 
-- `odom_linear_calibrator`가 `/cmd_vel`을 publish한다.
+- `odom_linear_calibrator`가 `/cmd_vel` `geometry_msgs/msg/TwistStamped`를 publish한다.
 - TurtleBot3가 Gazebo에서 이동한다.
 - `/odom` pose가 변화한다.
 - calibrator가 `/odom` 기준 이동 거리를 계산한다.
 - target distance 근처에서 `WAIT_FOR_MEASUREMENT`로 전이한다.
-- `motion_data_recorder`가 `/cmd_vel`, `/odom`을 CSV로 기록한다.
+- `motion_data_recorder`가 `/cmd_vel` TwistStamped, `/odom`을 CSV로 기록한다.
 
 TurtleBot3는 differential drive 로봇이므로 이 문서는 x축 전진/후진 검증만 다룬다.
 
@@ -85,12 +85,14 @@ ros2 topic echo /odom --once
 확인 기준:
 
 - `/cmd_vel` topic이 존재한다.
-- `/cmd_vel` message type이 `geometry_msgs/msg/Twist`다.
+- `/cmd_vel` message type이 `geometry_msgs/msg/TwistStamped`다.
 - `/odom` topic이 존재한다.
 - `/odom` message type이 `nav_msgs/msg/Odometry`다.
 - `/odom` pose 값이 정상적으로 echo된다.
 
 topic 이름이 다르면 이후 명령에서 `cmd_vel_topic`, `odom_topic` parameter를 실제 topic 이름으로 override한다.
+
+`odom_linear_calibrator`와 `motion_data_recorder`는 `/cmd_vel`을 `geometry_msgs/msg/TwistStamped`로 사용한다. TurtleBot3 Gazebo의 Jazzy bridge도 `/cmd_vel` `TwistStamped` subscriber를 제공하므로 별도 relay 없이 직접 연결된다.
 
 ## odometry_calibrator Build/Test
 
@@ -163,7 +165,7 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args \
 예상 동작:
 
 1. calibrator가 첫 `/odom`을 latch한다.
-2. `/cmd_vel.linear.x`를 publish한다.
+2. `/cmd_vel.twist.linear.x`를 publish한다.
 3. TurtleBot3가 Gazebo에서 전진한다.
 4. `/odom` 기준 `axis_distance`가 증가한다.
 5. target distance 근처에서 `WAIT_FOR_MEASUREMENT`로 전이한다.

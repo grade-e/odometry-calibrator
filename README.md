@@ -17,7 +17,7 @@ K_y = D_actual / D_odom_y
 
 측정값 입력은 `MeasurementProvider` 인터페이스 뒤에 있다. 현재 구현은 `CliMeasurementProvider`를 사용하며, 나중에 marker 기반 provider를 추가해도 calibration node와 강하게 결합되지 않도록 구성되어 있다.
 
-configured odom topic subscription은 ROS 2 sensor-data QoS를 사용한다. 따라서 로봇에서 흔히 쓰는 best-effort odometry publisher와 연결할 수 있다. `/cmd_vel` publisher는 기본 reliable QoS를 유지한다.
+configured odom topic subscription은 ROS 2 sensor-data QoS를 사용한다. 따라서 로봇에서 흔히 쓰는 best-effort odometry publisher와 연결할 수 있다. `/cmd_vel` publisher는 `geometry_msgs/msg/TwistStamped`를 사용하고 기본 reliable QoS를 유지한다.
 
 ## 빌드
 
@@ -81,10 +81,10 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p dir
 command velocity mapping은 다음과 같다.
 
 ```text
-axis: x, direction:  1  -> /cmd_vel.linear.x = +v_cmd
-axis: x, direction: -1  -> /cmd_vel.linear.x = -v_cmd
-axis: y, direction:  1  -> /cmd_vel.linear.y = +v_cmd
-axis: y, direction: -1  -> /cmd_vel.linear.y = -v_cmd
+axis: x, direction:  1  -> /cmd_vel.twist.linear.x = +v_cmd
+axis: x, direction: -1  -> /cmd_vel.twist.linear.x = -v_cmd
+axis: y, direction:  1  -> /cmd_vel.twist.linear.y = +v_cmd
+axis: y, direction: -1  -> /cmd_vel.twist.linear.y = -v_cmd
 ```
 
 ROS 2 parameter parsing에서는 quote 없는 `y`가 YAML boolean `true`로 해석될 수 있다. 이 노드는 해당 값을 y축으로 매핑하지만, YAML 파일에서는 `axis: "y"`처럼 quote를 사용하는 것을 권장한다.
@@ -130,19 +130,23 @@ K_y(-1)   : 0.972000
 ```yaml
 odom_topic: /odom
 cmd_vel_topic: /cmd_vel
+cmd_vel_frame_id: base_link
 axis: "x"
 direction: 1
 target_distance: 0.5
 distance_tolerance: 0.005
+control_mode: p_min_clamped
 kp: 0.4
 max_velocity: 0.1
-min_velocity: 0.01
+min_velocity: 0.05
 max_acceleration: 0.05
 control_rate_hz: 20.0
 stop_publish_rate_hz: 10.0
 motion_timeout_sec: 20.0
 keep_alive_after_done: true
 ```
+
+`control_mode`는 `constant`, `p`, `p_min_clamped`, `p_stop_threshold`를 지원한다. 기본값인 `p_min_clamped`는 odom 기준 남은 거리로 P 제어를 하되, 이동 중 command velocity가 `min_velocity`보다 낮아지지 않게 제한한다. 정지는 `distance_tolerance` 안에 들어오거나 `motion_timeout_sec`에 도달했을 때 수행한다.
 
 smoke test support용 mock odometry 기본값:
 
@@ -183,7 +187,7 @@ odom_linear_calibrator
 - K_x 또는 K_y 계산
 
 motion_data_recorder
-- /cmd_vel과 configured odom topic 구독
+- /cmd_vel(TwistStamped)과 configured odom topic 구독
 - optional PoseStamped reference pose topic 구독
 - 고정 주기로 CSV row 저장
 - shutdown summary 출력
@@ -259,16 +263,17 @@ recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. t
 ## 동작 흐름
 
 1. `odom_linear_calibrator`는 configured odom topic에서 첫 유효한 odometry sample을 기다리고, 이를 start pose로 latch한다.
-2. 노드는 `axis`와 `direction`에 따라 signed `/cmd_vel.linear.x` 또는 `/cmd_vel.linear.y`를 publish하며 acceleration limit을 적용한다.
-3. target distance 근처에 도달하거나, timeout이 발생하거나, command velocity가 minimum 아래로 내려가면 `WAIT_FOR_MEASUREMENT`로 전이한다.
-4. 측정값 입력 대기 중에는 최소 10 Hz로 zero velocity를 계속 publish한다.
-5. meter 단위 실제 측정 거리를 입력한다.
+2. 노드는 `axis`와 `direction`에 따라 signed `/cmd_vel.twist.linear.x` 또는 `/cmd_vel.twist.linear.y`를 publish하며 acceleration limit을 적용한다.
+3. `control_mode`에 따라 정속 주행 또는 odom feedback 기반 P 제어로 속도 명령을 계산한다.
+4. target distance 근처에 도달하거나 timeout이 발생하면 `WAIT_FOR_MEASUREMENT`로 전이한다.
+5. 측정값 입력 대기 중에는 최소 10 Hz로 zero velocity를 계속 publish한다.
+6. meter 단위 실제 측정 거리를 입력한다.
 
 ```text
 Enter actual measured distance [m]: 0.985
 ```
 
-6. 노드는 `Axis`, `Direction`, `D_odom`, `D_actual`, `K_x(+/-1)` 또는 `K_y(+/-1)`를 출력한다.
+7. 노드는 `Axis`, `Direction`, `D_odom`, `D_actual`, `K_x(+/-1)` 또는 `K_y(+/-1)`를 출력한다.
 
 ## 참고 사항
 

@@ -9,7 +9,7 @@
 주요 목표는 두 가지다.
 
 - `odom_linear_calibrator`: 로봇을 지정 거리만큼 움직이고 scale factor를 계산한다.
-- `motion_data_recorder`: `/cmd_vel`, odometry, optional reference pose를 CSV로 저장한다.
+- `motion_data_recorder`: `/cmd_vel` TwistStamped, odometry, optional reference pose를 CSV로 저장한다.
 
 시각화는 패키지 내부에서 하지 않는다. CSV는 PlotJuggler, Excel, spreadsheet, Python notebook, 별도 분석 script 같은 외부 도구에서 확인한다.
 
@@ -19,7 +19,7 @@
 flowchart LR
     operator["작업자"] -->|실측 거리 입력| calibrator["odom_linear_calibrator"]
 
-    calibrator -->|Twist| cmd_vel["/cmd_vel"]
+    calibrator -->|TwistStamped| cmd_vel["/cmd_vel"]
     robot["AMR 또는 simulator"] -->|Odometry| odom["configured odom topic"]
     cmd_vel --> robot
     odom --> calibrator
@@ -37,9 +37,9 @@ flowchart LR
 
 | 노드 | 내부 module | 역할 | publish | subscribe | 파일 출력 |
 | --- | --- | --- | --- | --- | --- |
-| `odom_linear_calibrator` | `calibration` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` | configured odom topic | 없음 |
+| `odom_linear_calibrator` | `calibration` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` TwistStamped | configured odom topic | 없음 |
 | `test_mock_odom_publisher` | `test_support` | smoke test support용 fixed-speed odometry source | configured mock odom topic | 없음 | 없음 |
-| `motion_data_recorder` | `recording` | command/odom/reference 데이터를 CSV로 기록 | 없음 | configured `/cmd_vel`, configured odom topic, optional reference pose | CSV |
+| `motion_data_recorder` | `recording` | command/odom/reference 데이터를 CSV로 기록 | 없음 | configured `/cmd_vel` TwistStamped, configured odom topic, optional reference pose | CSV |
 
 내부 구현은 `calibration`, `recording`, `common`, `test_support` module로 나뉘지만 ROS 2 package는 하나의 `odometry_calibrator`로 유지한다. 공통 axis/direction 처리, pose 계산, parameter validation, 결과 formatting은 `common` module에 둔다.
 

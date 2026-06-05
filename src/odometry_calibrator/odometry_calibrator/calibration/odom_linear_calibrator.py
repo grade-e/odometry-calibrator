@@ -17,7 +17,7 @@ from enum import Enum
 import math
 from threading import Lock
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from odometry_calibrator.calibration.cli_measurement_provider import CliMeasurementProvider
 from odometry_calibrator.common.axis import normalize_axis
@@ -38,6 +38,20 @@ from rclpy.qos import ReliabilityPolicy
 
 
 MINIMUM_ODOM_DISTANCE_FOR_SCALE = 1.0e-6
+CONTROL_MODE_CONSTANT = 'constant'
+CONTROL_MODE_P = 'p'
+CONTROL_MODE_P_MIN_CLAMPED = 'p_min_clamped'
+CONTROL_MODE_P_STOP_THRESHOLD = 'p_stop_threshold'
+CONTROL_MODE_ALIASES = {
+    'normal': CONTROL_MODE_CONSTANT,
+    'p_min_velocity': CONTROL_MODE_P_MIN_CLAMPED,
+}
+VALID_CONTROL_MODES = (
+    CONTROL_MODE_CONSTANT,
+    CONTROL_MODE_P,
+    CONTROL_MODE_P_MIN_CLAMPED,
+    CONTROL_MODE_P_STOP_THRESHOLD,
+)
 ODOM_QOS = QoSProfile(
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
@@ -61,11 +75,13 @@ class Parameters:
     direction: int = 1
     odom_topic: str = '/odom'
     cmd_vel_topic: str = '/cmd_vel'
+    cmd_vel_frame_id: str = 'base_link'
     target_distance: float = 1.0
     distance_tolerance: float = 0.005
+    control_mode: str = CONTROL_MODE_P_MIN_CLAMPED
     kp: float = 0.4
     max_velocity: float = 0.1
-    min_velocity: float = 0.01
+    min_velocity: float = 0.05
     max_acceleration: float = 0.05
     control_rate_hz: float = 20.0
     stop_publish_rate_hz: float = 10.0
@@ -93,7 +109,11 @@ class OdomLinearCalibrator(Node):
         self._last_nonfinite_warn_ns = 0
         self._last_reverse_motion_warn_ns = 0
 
-        self._cmd_vel_pub = self.create_publisher(Twist, self._params.cmd_vel_topic, 10)
+        self._cmd_vel_pub = self.create_publisher(
+            TwistStamped,
+            self._params.cmd_vel_topic,
+            10,
+        )
         self._odom_sub = self.create_subscription(
             Odometry,
             self._params.odom_topic,
@@ -110,7 +130,8 @@ class OdomLinearCalibrator(Node):
         )
 
         self.get_logger().info(
-            f"Waiting for first odometry message on '{self._params.odom_topic}'"
+            f"Waiting for first odometry message on '{self._params.odom_topic}' "
+            f"with control_mode='{self._params.control_mode}'"
         )
 
     def _declare_and_load_parameters(self):
@@ -142,6 +163,8 @@ class OdomLinearCalibrator(Node):
 
         if self._params.min_velocity > self._params.max_velocity:
             raise RuntimeError('min_velocity must be less than or equal to max_velocity')
+
+        self._params.control_mode = normalize_control_mode(self._params.control_mode)
 
         self._params.axis = normalize_axis(self._params.axis)
         if self._params.axis not in VALID_AXES:
@@ -216,10 +239,10 @@ class OdomLinearCalibrator(Node):
         if self._state == State.INIT:
             return
         if self._state == State.MOVING_ACCEL_LIMIT:
-            self._update_moving_state(current_time, allow_min_velocity_stop=False)
+            self._update_moving_state(current_time)
             return
         if self._state == State.MOVING_P_CONTROL:
-            self._update_moving_state(current_time, allow_min_velocity_stop=True)
+            self._update_moving_state(current_time)
             return
         if self._state == State.WAIT_FOR_MEASUREMENT:
             if self._measurement_provider.has_measurement():
@@ -254,7 +277,7 @@ class OdomLinearCalibrator(Node):
                 )
                 rclpy.shutdown()
 
-    def _update_moving_state(self, current_time, allow_min_velocity_stop):
+    def _update_moving_state(self, current_time):
         odom_distance = self._current_odom_distance_value()
         remaining = self._params.target_distance - odom_distance
         elapsed = self._seconds_between(current_time, self._motion_start_time)
@@ -268,14 +291,23 @@ class OdomLinearCalibrator(Node):
             self._transition_to(State.WAIT_FOR_MEASUREMENT)
             return
 
-        raw_velocity = min(max(self._params.kp * remaining, 0.0), self._params.max_velocity)
+        raw_velocity = compute_target_velocity(
+            self._params.control_mode,
+            remaining,
+            self._params.kp,
+            self._params.min_velocity,
+            self._params.max_velocity,
+        )
+        if (
+            self._params.control_mode == CONTROL_MODE_P_STOP_THRESHOLD
+            and raw_velocity <= 0.0
+        ):
+            self._transition_to(State.WAIT_FOR_MEASUREMENT)
+            return
+
         dt = max(self._seconds_between(current_time, self._last_control_time), 0.0)
         self._last_control_time = current_time
         limited_velocity = self._rate_limit(raw_velocity, dt)
-
-        if allow_min_velocity_stop and raw_velocity < self._params.min_velocity:
-            self._transition_to(State.WAIT_FOR_MEASUREMENT)
-            return
 
         self._last_cmd_velocity = limited_velocity
         self._publish_velocity(limited_velocity)
@@ -320,13 +352,15 @@ class OdomLinearCalibrator(Node):
         )
 
     def _publish_velocity(self, linear_velocity):
-        cmd = Twist()
-        cmd.linear.x, cmd.linear.y = signed_linear_components(
+        cmd = TwistStamped()
+        cmd.header.stamp = self.get_clock().now().to_msg()
+        cmd.header.frame_id = self._params.cmd_vel_frame_id
+        cmd.twist.linear.x, cmd.twist.linear.y = signed_linear_components(
             self._params.axis,
             self._params.direction,
             linear_velocity,
         )
-        cmd.angular.z = 0.0
+        cmd.twist.angular.z = 0.0
         self._cmd_vel_pub.publish(cmd)
 
     def _publish_stop(self):
@@ -348,6 +382,37 @@ class OdomLinearCalibrator(Node):
     @staticmethod
     def _seconds_between(later, earlier):
         return (later - earlier).nanoseconds * 1.0e-9
+
+
+def normalize_control_mode(value):
+    mode = str(value).strip().lower()
+    mode = CONTROL_MODE_ALIASES.get(mode, mode)
+    if mode not in VALID_CONTROL_MODES:
+        valid_modes = ', '.join(VALID_CONTROL_MODES)
+        raise RuntimeError(f'control_mode must be one of: {valid_modes}')
+    return mode
+
+
+def compute_target_velocity(control_mode, remaining_distance, kp, min_velocity, max_velocity):
+    if remaining_distance <= 0.0:
+        return 0.0
+
+    if control_mode == CONTROL_MODE_CONSTANT:
+        return max_velocity
+
+    proportional_velocity = kp * remaining_distance
+    p_velocity = min(max(proportional_velocity, 0.0), max_velocity)
+
+    if control_mode == CONTROL_MODE_P:
+        return p_velocity
+    if control_mode == CONTROL_MODE_P_MIN_CLAMPED:
+        return min(max(p_velocity, min_velocity), max_velocity)
+    if control_mode == CONTROL_MODE_P_STOP_THRESHOLD:
+        if p_velocity < min_velocity:
+            return 0.0
+        return p_velocity
+
+    raise RuntimeError(f'unsupported control_mode: {control_mode}')
 
 
 def main(args=None):

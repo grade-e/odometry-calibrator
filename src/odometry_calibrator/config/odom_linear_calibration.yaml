@@ -4,11 +4,13 @@ odom_linear_calibrator:
     direction: 1
     odom_topic: /odom
     cmd_vel_topic: /cmd_vel
+    cmd_vel_frame_id: base_link
     target_distance: 0.5
     distance_tolerance: 0.005
+    control_mode: p_min_clamped
     kp: 0.4
     max_velocity: 0.1
-    min_velocity: 0.01
+    min_velocity: 0.05
     max_acceleration: 0.05
     control_rate_hz: 20.0
     stop_publish_rate_hz: 10.0

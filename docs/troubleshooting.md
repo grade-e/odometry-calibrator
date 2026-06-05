@@ -49,8 +49,8 @@ plotjuggler
 ROS topic을 직접 볼 때 먼저 확인할 field:
 
 ```text
-/cmd_vel.linear.x
-/cmd_vel.linear.y
+/cmd_vel.twist.linear.x
+/cmd_vel.twist.linear.y
 /odom.pose.pose.position.x
 /odom.pose.pose.position.y
 ```
@@ -95,11 +95,14 @@ Excel, LibreOffice, Google Sheets에서는 `time_sec`를 x축으로 두고 `axis
 | --- | ---: | --- |
 | `odom_topic` | `/odom` | odometry 입력 topic |
 | `cmd_vel_topic` | `/cmd_vel` | command velocity 출력 topic |
+| `cmd_vel_frame_id` | `base_link` | TwistStamped header frame_id |
 | `axis` | `"x"` | `x` 또는 `y` |
 | `direction` | `1` | `1` 또는 `-1` |
 | `target_distance` | `0.5` | 목표 이동 거리 |
 | `distance_tolerance` | `0.005` | 목표 거리 도달 tolerance |
+| `control_mode` | `p_min_clamped` | command velocity 계산 방식 |
 | `max_velocity` | `0.1` | 최대 command velocity |
+| `min_velocity` | `0.05` | `p_min_clamped` 이동 중 command velocity 하한 |
 | `max_acceleration` | `0.05` | acceleration limit |
 | `motion_timeout_sec` | `20.0` | 이동 timeout |
 

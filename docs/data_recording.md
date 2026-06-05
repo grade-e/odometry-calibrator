@@ -14,7 +14,7 @@ recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. t
 
 `odom_linear_calibrator`는 로봇을 움직이고, 작업자가 입력한 실제 측정 거리를 받아 odometry scale factor를 계산한다.
 
-`motion_data_recorder`는 로봇을 움직이지 않고 최종 calibration constant도 계산하지 않는다. `/cmd_vel`, configured odom topic, optional `PoseStamped` reference pose topic을 구독하고, 나중에 분석할 raw motion data를 CSV로 저장한다.
+`motion_data_recorder`는 로봇을 움직이지 않고 최종 calibration constant도 계산하지 않는다. `/cmd_vel` TwistStamped, configured odom topic, optional `PoseStamped` reference pose topic을 구독하고, 나중에 분석할 raw motion data를 CSV로 저장한다.
 
 ## 기본 실행
 
@@ -81,7 +81,7 @@ time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance
 ```
 
 - `time_sec`: CSV recording 시작 이후 경과 시간
-- `cmd_vx`, `cmd_vy`, `cmd_wz`: 최신 `/cmd_vel` 값
+- `cmd_vx`, `cmd_vy`, `cmd_wz`: 최신 `/cmd_vel.twist` 값
 - `odom_x`, `odom_y`, `odom_yaw`: 최신 odometry pose
 - `odom_distance`: odometry start pose 기준 2D 이동 거리
 - `axis_distance`: `axis`와 `direction` 기준 양수 이동 거리
@@ -139,7 +139,7 @@ rosbag replay 중 `motion_data_recorder`를 실행하면 replay된 topic에서 C
 
 `rqt_graph`는 데이터 값을 보는 도구가 아니라 ROS graph의 node/topic 연결 관계를 확인하는 도구다. 다음을 확인할 때 사용한다.
 
-- `odom_linear_calibrator`가 configured `/cmd_vel`을 publish하는지
+- `odom_linear_calibrator`가 configured `/cmd_vel` TwistStamped를 publish하는지
 - `odom_linear_calibrator`가 configured odom topic을 subscribe하는지
 - `motion_data_recorder`가 `/cmd_vel`과 configured odom topic을 subscribe하는지
 - `test_mock_odom_publisher`가 mock odom topic을 publish하는지
@@ -190,8 +190,8 @@ plotjuggler
 ROS topic에서 먼저 보기 좋은 field:
 
 ```text
-/cmd_vel.linear.x
-/cmd_vel.linear.y
+/cmd_vel.twist.linear.x
+/cmd_vel.twist.linear.y
 /odom.pose.pose.position.x
 /odom.pose.pose.position.y
 ```
