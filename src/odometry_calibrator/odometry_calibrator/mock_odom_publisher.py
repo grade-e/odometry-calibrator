@@ -22,6 +22,7 @@ from odometry_calibrator.axis import VALID_DIRECTIONS
 from odometry_calibrator.parameters import validate_positive_finite
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
 from rclpy.qos import HistoryPolicy
@@ -120,9 +121,12 @@ def main(args=None):
     node = MockOdomPublisher()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        node.destroy_node()
+        try:
+            node.destroy_node()
+        except KeyboardInterrupt:
+            pass
         if rclpy.ok():
             rclpy.shutdown()
