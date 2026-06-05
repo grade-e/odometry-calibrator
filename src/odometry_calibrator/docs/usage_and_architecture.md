@@ -293,7 +293,7 @@ time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance
 
 | column | 의미 |
 | --- | --- |
-| `time_sec` | recording 시작 후 경과 시간 |
+| `time_sec` | CSV recording이 실제 시작된 이후의 경과 시간 |
 | `cmd_vx` | 최신 `/cmd_vel.linear.x` |
 | `cmd_vy` | 최신 `/cmd_vel.linear.y` |
 | `cmd_wz` | 최신 `/cmd_vel.angular.z` |

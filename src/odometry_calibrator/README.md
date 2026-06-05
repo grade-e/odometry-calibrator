@@ -202,6 +202,8 @@ Base CSV columns:
 time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance,remaining_distance
 ```
 
+`time_sec` is elapsed time after CSV recording actually starts. `odom_distance` is calculated from the first latched odometry pose.
+
 Reference pose recording can be enabled with a `geometry_msgs/msg/PoseStamped` topic:
 
 ```bash
@@ -215,6 +217,8 @@ When reference pose recording is enabled, the CSV also includes:
 ```csv
 ref_x,ref_y,ref_yaw,ref_distance,ref_axis_distance,odom_ref_error,error_rate,scale_estimate
 ```
+
+`ref_distance` is calculated from the first latched reference pose.
 
 Example summary:
 

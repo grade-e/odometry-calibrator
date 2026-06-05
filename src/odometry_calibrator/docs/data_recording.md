@@ -63,6 +63,8 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args \
 
 The recorder starts writing rows only after it has latched the first odometry sample. If reference pose recording is enabled, it also waits for the first valid reference pose.
 
+`time_sec` is measured from the moment CSV recording actually starts. Distance origins are separate from the time origin: `odom_distance` is calculated from the first latched odometry pose, and `ref_distance` is calculated from the first latched reference pose.
+
 ## CSV Columns
 
 Base columns:
@@ -71,7 +73,7 @@ Base columns:
 time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance,remaining_distance
 ```
 
-- `time_sec`: elapsed time after the latched odometry start time
+- `time_sec`: elapsed time after CSV recording starts
 - `cmd_vx`, `cmd_vy`, `cmd_wz`: latest `/cmd_vel` values
 - `odom_x`, `odom_y`, `odom_yaw`: latest odometry pose
 - `odom_distance`: 2D distance from the odometry start pose

@@ -28,11 +28,13 @@ from odometry_calibrator.axis import VALID_AXES
 from odometry_calibrator.motion_metrics import compute_axis_distance
 from odometry_calibrator.motion_metrics import compute_remaining_distance
 from odometry_calibrator.motion_metrics import safe_ratio
+from odometry_calibrator.parameters import normalize_reference_pose_topic
 from odometry_calibrator.parameters import validate_positive_finite
 from odometry_calibrator.pose_utils import distance_2d
 from odometry_calibrator.pose_utils import yaw_from_quaternion
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
+from rclpy.exceptions import ParameterUninitializedException
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
@@ -116,6 +118,8 @@ class MotionDataRecorder(Node):
         self._start_ref = None
         self._start_time = None
         self._recording_started = False
+        self._last_nonfinite_odom_warn_ns = 0
+        self._last_nonfinite_ref_warn_ns = 0
 
         self._csv_file = None
         self._csv_writer = None
@@ -170,7 +174,10 @@ class MotionDataRecorder(Node):
             if name in ('axis', 'direction'):
                 descriptor = ParameterDescriptor(dynamic_typing=True)
             self.declare_parameter(name, default, descriptor)
-            values[name] = self.get_parameter(name).value
+            try:
+                values[name] = self.get_parameter(name).value
+            except ParameterUninitializedException:
+                values[name] = default
         return Parameters(**values)
 
     def _validate_parameters(self):
@@ -189,10 +196,13 @@ class MotionDataRecorder(Node):
         except ValueError as exc:
             raise RuntimeError(str(exc)) from exc
 
-        if self._params.use_reference_pose and not self._params.reference_pose_topic:
-            raise RuntimeError(
-                'reference_pose_topic must not be empty when use_reference_pose=true'
+        try:
+            self._params.reference_pose_topic = normalize_reference_pose_topic(
+                self._params.use_reference_pose,
+                self._params.reference_pose_topic,
             )
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
 
     def _cmd_vel_callback(self, msg):
         with self._lock:
@@ -205,7 +215,7 @@ class MotionDataRecorder(Node):
     def _odom_callback(self, msg):
         pose = msg.pose.pose
         if not self._is_finite_pose(pose.position.x, pose.position.y, pose.orientation):
-            self.get_logger().warning('Ignoring non-finite odometry pose')
+            self._warn_nonfinite_odom()
             return
 
         sample = PoseSample(
@@ -217,7 +227,6 @@ class MotionDataRecorder(Node):
             self._latest_odom = sample
             if self._start_odom is None:
                 self._start_odom = sample
-                self._start_time = self.get_clock().now()
                 self.get_logger().info(
                     'Latched odometry start pose: x=%.6f, y=%.6f'
                     % (sample.x, sample.y)
@@ -226,7 +235,7 @@ class MotionDataRecorder(Node):
     def _reference_pose_callback(self, msg):
         pose = msg.pose
         if not self._is_finite_pose(pose.position.x, pose.position.y, pose.orientation):
-            self.get_logger().warning('Ignoring non-finite reference pose')
+            self._warn_nonfinite_reference_pose()
             return
 
         sample = PoseSample(
@@ -274,6 +283,7 @@ class MotionDataRecorder(Node):
             fieldnames.extend(REFERENCE_FIELDS)
         self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=fieldnames)
         self._csv_writer.writeheader()
+        self._start_time = self.get_clock().now()
         self._recording_started = True
         self.get_logger().info("Started recording CSV: '%s'" % self._csv_path)
 
@@ -355,7 +365,21 @@ class MotionDataRecorder(Node):
         })
 
     def _elapsed_since_start(self):
+        if self._start_time is None:
+            return 0.0
         return (self.get_clock().now() - self._start_time).nanoseconds * 1.0e-9
+
+    def _warn_nonfinite_odom(self):
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_nonfinite_odom_warn_ns >= 2_000_000_000:
+            self.get_logger().warning('Ignoring non-finite odometry pose')
+            self._last_nonfinite_odom_warn_ns = now_ns
+
+    def _warn_nonfinite_reference_pose(self):
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_nonfinite_ref_warn_ns >= 2_000_000_000:
+            self.get_logger().warning('Ignoring non-finite reference pose')
+            self._last_nonfinite_ref_warn_ns = now_ns
 
     def _update_summary_metrics(self, metrics):
         self._sample_count += 1

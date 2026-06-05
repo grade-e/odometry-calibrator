@@ -18,3 +18,12 @@ import math
 def validate_positive_finite(name, value):
     if value <= 0.0 or not math.isfinite(value):
         raise ValueError(f'{name} must be positive and finite')
+
+
+def normalize_reference_pose_topic(use_reference_pose, topic):
+    topic = '' if topic is None else str(topic).strip()
+    if use_reference_pose and not topic:
+        raise ValueError(
+            'reference_pose_topic must not be empty when use_reference_pose=true'
+        )
+    return topic
