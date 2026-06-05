@@ -1,6 +1,6 @@
 # Motion Data 기록
 
-전체 패키지 구조와 end-to-end workflow는 `usage_and_architecture.md`를 참고한다.
+전체 패키지 구조는 `architecture.md`, calibration 절차는 `calibration.md`, 문제 해결은 `troubleshooting.md`를 참고한다.
 
 ## 목적
 

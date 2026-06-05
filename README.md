@@ -42,8 +42,11 @@ ros2 run odometry_calibrator motion_data_recorder
 
 ## 문서
 
-- 상세 사용법과 구조: `docs/usage_and_architecture.md`
+- 문서 안내: `docs/usage_and_architecture.md`
+- 구성과 내부 구조: `docs/architecture.md`
+- odometry calibration 절차: `docs/calibration.md`
 - motion data recording 상세: `docs/data_recording.md`
+- 진단과 문제 해결: `docs/troubleshooting.md`
 
 ## 방향별 실행 예시
 
