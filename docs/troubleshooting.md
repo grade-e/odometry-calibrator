@@ -162,17 +162,23 @@ axis: "y"
 
 ```bash
 ros2 topic list
-ros2 topic info /odom
-ros2 topic info /cmd_vel
+ros2 topic info /odom -v
+ros2 topic info /cmd_vel -v
 ros2 topic echo /odom --once
 ```
 
 custom topic을 쓰는 경우:
 
 ```bash
-ros2 topic info /my_robot/wheel_odom
-ros2 topic info /my_robot/cmd_vel
+ros2 topic info /my_robot/wheel_odom -v
+ros2 topic info /my_robot/cmd_vel -v
 ```
+
+`/cmd_vel`을 publish해도 로봇이 움직이지 않으면 topic type mismatch를 먼저 확인한다.
+
+- publisher type과 subscriber type이 모두 `geometry_msgs/msg/TwistStamped`인지 확인한다.
+- subscriber가 `geometry_msgs/msg/Twist`만 받는다면 현재 odometry_calibrator와 직접 연결되지 않는다.
+- 이 경우 relay/adapter 또는 대상 robot의 `TwistStamped` command interface가 필요하다.
 
 ## 관련 문서
 

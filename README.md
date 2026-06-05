@@ -19,6 +19,8 @@ K_y = D_actual / D_odom_y
 
 configured odom topic subscription은 ROS 2 sensor-data QoS를 사용한다. 따라서 로봇에서 흔히 쓰는 best-effort odometry publisher와 연결할 수 있다. `/cmd_vel` publisher는 `geometry_msgs/msg/TwistStamped`를 사용하고 기본 reliable QoS를 유지한다.
 
+현재 `/cmd_vel` publisher/subscriber는 `geometry_msgs/msg/TwistStamped` 기준이다. `geometry_msgs/msg/Twist` 기반 robot 또는 simulation에 연결하려면 topic type 확인과 relay/adapter가 필요할 수 있다. 자세한 확인 절차는 `docs/turtlebot3_gazebo_test.md`와 `docs/troubleshooting.md`를 참고한다.
+
 ## 빌드
 
 ```bash

@@ -77,22 +77,30 @@ TurtleBot3 Gazebo 실행 후 topic을 확인한다.
 
 ```bash
 ros2 topic list
-ros2 topic info /cmd_vel
-ros2 topic info /odom
+ros2 topic info /cmd_vel -v
+ros2 topic info /odom -v
 ros2 topic echo /odom --once
 ```
 
 확인 기준:
 
 - `/cmd_vel` topic이 존재한다.
-- `/cmd_vel` message type이 `geometry_msgs/msg/TwistStamped`다.
+- `/cmd_vel` subscriber type을 확인한다.
 - `/odom` topic이 존재한다.
 - `/odom` message type이 `nav_msgs/msg/Odometry`다.
 - `/odom` pose 값이 정상적으로 echo된다.
 
 topic 이름이 다르면 이후 명령에서 `cmd_vel_topic`, `odom_topic` parameter를 실제 topic 이름으로 override한다.
 
-`odom_linear_calibrator`와 `motion_data_recorder`는 `/cmd_vel`을 `geometry_msgs/msg/TwistStamped`로 사용한다. TurtleBot3 Gazebo의 Jazzy bridge도 `/cmd_vel` `TwistStamped` subscriber를 제공하므로 별도 relay 없이 직접 연결된다.
+`odom_linear_calibrator`와 `motion_data_recorder`는 `/cmd_vel`을 `geometry_msgs/msg/TwistStamped`로 사용한다. 따라서 TurtleBot3 Gazebo의 `/cmd_vel` subscriber가 `geometry_msgs/msg/TwistStamped`이면 직접 연결할 수 있다.
+
+검증된 환경에서는 TurtleBot3 Gazebo bridge가 `/cmd_vel` `geometry_msgs/msg/TwistStamped` subscriber를 제공하여 별도 relay 없이 직접 연결되었다. 다만 TurtleBot3 simulation version, ROS 2 distribution, bridge 설정에 따라 `/cmd_vel` type이 `geometry_msgs/msg/Twist`일 수 있으므로 반드시 `ros2 topic info /cmd_vel -v`로 실제 type을 확인한다.
+
+분기 기준:
+
+- `/cmd_vel` subscriber type이 `geometry_msgs/msg/TwistStamped`이면 odometry_calibrator를 직접 연결할 수 있다.
+- `/cmd_vel` subscriber type이 `geometry_msgs/msg/Twist`이면 직접 연결되지 않는다.
+- 이 경우 `TwistStamped`를 `Twist`로 변환하는 relay 또는 adapter node가 필요하다.
 
 ## odometry_calibrator Build/Test
 
@@ -321,6 +329,7 @@ ros2 topic info /odom
 
 ```bash
 ros2 topic echo /cmd_vel
+ros2 topic info /cmd_vel -v
 ```
 
 확인 항목:
@@ -329,6 +338,19 @@ ros2 topic echo /cmd_vel
 - Gazebo가 pause 상태인지
 - 로봇이 world에 spawn되었는지
 - `/cmd_vel` message가 실제로 publish되고 있는지
+- `/cmd_vel` publisher와 subscriber type이 모두 `geometry_msgs/msg/TwistStamped`인지
+
+### `/cmd_vel` type이 Twist인 경우
+
+`odometry_calibrator`는 `/cmd_vel`을 `geometry_msgs/msg/TwistStamped`로 publish한다. 대상 robot 또는 simulation이 `geometry_msgs/msg/Twist`만 subscribe하면 topic type mismatch로 직접 연결되지 않는다.
+
+이 경우 선택지는 다음과 같다.
+
+1. 대상 robot 또는 simulation에서 `TwistStamped` command topic을 활성화한다.
+2. `TwistStamped`를 `Twist`로 변환하는 relay 또는 adapter node를 사용한다.
+3. odometry_calibrator에 command velocity type 선택 기능을 별도 기능으로 추가한다.
+
+이번 문서는 relay node를 구현하지 않는다. 실제 AMR 또는 simulator에 맞는 command interface를 먼저 확인한다.
 
 ### calibrator가 바로 timeout 되는 경우
 
