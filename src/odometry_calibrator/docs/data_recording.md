@@ -1,20 +1,20 @@
-# Motion Data Recording
+# Motion Data 기록
 
-For the full package architecture and end-to-end workflows, see `usage_and_architecture.md`.
+전체 패키지 구조와 end-to-end workflow는 `usage_and_architecture.md`를 참고한다.
 
-## Purpose
+## 목적
 
-`motion_data_recorder` records time-aligned command velocity, odometry, and optional reference pose data to CSV. It is intended for real AMR low-speed checks, calibrator runs, mock smoke tests, rosbag replay analysis, and future external reference comparisons.
+`motion_data_recorder`는 command velocity, odometry, optional reference pose data를 시간 기준으로 CSV에 기록한다. 실제 AMR 저속 점검, calibrator 실행 중 기록, mock smoke test, rosbag replay 분석, 향후 외부 기준 pose 비교에 사용할 수 있다.
 
-The recorder only writes CSV data and prints a summary. Visualization should be done with external tools such as PlotJuggler, spreadsheets, notebooks, or separate optional scripts.
+recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
 
-## Role Separation
+## 역할 분리
 
-`odom_linear_calibrator` drives the robot, waits for the operator's measured distance input, and calculates the odometry scale factor.
+`odom_linear_calibrator`는 로봇을 움직이고, 작업자가 입력한 실제 측정 거리를 받아 odometry scale factor를 계산한다.
 
-`motion_data_recorder` does not command the robot and does not calculate final calibration constants. It subscribes to `/cmd_vel`, the configured odom topic, and optionally a `PoseStamped` reference pose topic, then writes raw motion data for later analysis.
+`motion_data_recorder`는 로봇을 움직이지 않고 최종 calibration constant도 계산하지 않는다. `/cmd_vel`, configured odom topic, optional `PoseStamped` reference pose topic을 구독하고, 나중에 분석할 raw motion data를 CSV로 저장한다.
 
-## Basic Run
+## 기본 실행
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -23,15 +23,15 @@ source install/setup.bash
 ros2 launch odometry_calibrator data_recording.launch.py
 ```
 
-By default, CSV files are saved under:
+기본 CSV 저장 위치:
 
 ```text
 logs/motion_<timestamp>.csv
 ```
 
-When only `test_mock_odom_publisher` is running, command velocity columns can remain zero because no node is publishing `/cmd_vel`. The test mock odometry publisher is a smoke-test support executable and fixed-speed odometry source, not a robot simulator or closed-loop robot model, so it keeps increasing odometry until the mock node is stopped.
+`test_mock_odom_publisher`만 실행 중인 경우 command velocity 컬럼은 0으로 유지될 수 있다. 이 경우 `/cmd_vel`을 publish하는 노드가 없기 때문이다. `test_mock_odom_publisher`는 smoke test support용 fixed-speed odometry source이며 robot simulator나 closed-loop robot model이 아니다. 따라서 mock node를 멈출 때까지 odometry는 계속 증가한다.
 
-To override parameters:
+parameter를 override하려면:
 
 ```bash
 ros2 run odometry_calibrator motion_data_recorder --ros-args \
@@ -43,9 +43,9 @@ ros2 run odometry_calibrator motion_data_recorder --ros-args \
   -p output_prefix:=calibration_x_pos
 ```
 
-## Recording During Calibration
+## Calibration 중 기록
 
-Run the recorder in one terminal:
+터미널 1에서 recorder를 실행한다.
 
 ```bash
 ros2 run odometry_calibrator motion_data_recorder --ros-args \
@@ -54,7 +54,7 @@ ros2 run odometry_calibrator motion_data_recorder --ros-args \
   -p target_distance:=0.5
 ```
 
-Run the calibrator in another terminal:
+터미널 2에서 calibrator를 실행한다.
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args \
@@ -63,50 +63,50 @@ ros2 run odometry_calibrator odom_linear_calibrator --ros-args \
   -p target_distance:=0.5
 ```
 
-The recorder starts writing rows only after it has latched the first odometry sample. If reference pose recording is enabled, it also waits for the first valid reference pose.
+recorder는 첫 odometry sample을 latch한 뒤에만 CSV row를 쓰기 시작한다. reference pose recording이 켜져 있으면 첫 유효한 reference pose까지 수신한 뒤 recording을 시작한다.
 
-`time_sec` is measured from the moment CSV recording actually starts. Distance origins are separate from the time origin: `odom_distance` is calculated from the first latched odometry pose, and `ref_distance` is calculated from the first latched reference pose.
+`time_sec`는 CSV recording이 실제 시작된 시점부터의 경과 시간이다. 거리 기준점은 시간 기준점과 분리되어 있다. `odom_distance`는 첫 latched odometry pose 기준으로 계산되고, `ref_distance`는 첫 latched reference pose 기준으로 계산된다.
 
-For mock-based calibration smoke tests, stop the recorder shortly after the calibrator reaches `DONE` if you want the recorder summary to stay close to `target_distance`. If the fixed-speed mock publisher continues running, odometry and summary distance will continue increasing even though `/cmd_vel` has returned to zero.
+mock 기반 calibration smoke test에서는 calibrator가 `DONE`에 도달한 직후 recorder를 종료하는 것이 좋다. fixed-speed mock publisher를 계속 실행하면 `/cmd_vel`이 zero로 돌아간 뒤에도 odometry와 summary distance는 계속 증가한다.
 
-## CSV Columns
+## CSV 컬럼
 
-Base columns:
+기본 컬럼:
 
 ```csv
 time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance,remaining_distance
 ```
 
-- `time_sec`: elapsed time after CSV recording starts
-- `cmd_vx`, `cmd_vy`, `cmd_wz`: latest `/cmd_vel` values
-- `odom_x`, `odom_y`, `odom_yaw`: latest odometry pose
-- `odom_distance`: 2D distance from the odometry start pose
-- `axis_distance`: positive distance along `axis` and `direction`
+- `time_sec`: CSV recording 시작 이후 경과 시간
+- `cmd_vx`, `cmd_vy`, `cmd_wz`: 최신 `/cmd_vel` 값
+- `odom_x`, `odom_y`, `odom_yaw`: 최신 odometry pose
+- `odom_distance`: odometry start pose 기준 2D 이동 거리
+- `axis_distance`: `axis`와 `direction` 기준 양수 이동 거리
 - `remaining_distance`: `target_distance - axis_distance`
 
-With `use_reference_pose=true`, the recorder appends:
+`use_reference_pose=true`이면 다음 컬럼이 추가된다.
 
 ```csv
 ref_x,ref_y,ref_yaw,ref_distance,ref_axis_distance,odom_ref_error,error_rate,scale_estimate
 ```
 
-- `ref_distance`: 2D distance from the reference start pose
-- `ref_axis_distance`: positive reference distance along `axis` and `direction`
+- `ref_distance`: reference start pose 기준 2D 이동 거리
+- `ref_axis_distance`: `axis`와 `direction` 기준 reference 이동 거리
 - `odom_ref_error`: `axis_distance - ref_axis_distance`
 - `error_rate`: `odom_ref_error / ref_axis_distance`
 - `scale_estimate`: `ref_axis_distance / axis_distance`
 
-Ratio fields are empty when the denominator is too small.
+ratio 계산에서 분모가 너무 작으면 해당 field는 빈 값으로 기록된다.
 
 ## Reference Pose
 
-The first implementation supports only:
+현재 구현에서 지원하는 reference pose message type은 다음 하나다.
 
 ```text
 geometry_msgs/msg/PoseStamped
 ```
 
-Example:
+실행 예시:
 
 ```bash
 ros2 run odometry_calibrator motion_data_recorder --ros-args \
@@ -114,27 +114,27 @@ ros2 run odometry_calibrator motion_data_recorder --ros-args \
   -p reference_pose_topic:=/reference_pose
 ```
 
-Use this for marker tracking, simulator ground truth, motion capture, or any external system that publishes a compatible `PoseStamped`.
+marker tracking, simulator ground truth, motion capture, external localization system 등 `PoseStamped`를 publish하는 외부 기준 pose source와 함께 사용할 수 있다.
 
 ## Rosbag
 
-Record raw ROS topics for replay or comparison:
+원본 ROS topic을 replay 또는 비교용으로 기록하려면:
 
 ```bash
 ros2 bag record /cmd_vel /odom
 ```
 
-With reference pose:
+reference pose까지 포함하려면:
 
 ```bash
 ros2 bag record /cmd_vel /odom /reference_pose
 ```
 
-During rosbag replay, start `motion_data_recorder` to regenerate CSV from the replayed topics.
+rosbag replay 중 `motion_data_recorder`를 실행하면 replay된 topic에서 CSV를 다시 만들 수 있다.
 
 ## PlotJuggler
 
-Useful ROS fields to inspect:
+ROS topic을 직접 볼 때 유용한 field:
 
 ```text
 /cmd_vel.linear.x
@@ -143,11 +143,11 @@ Useful ROS fields to inspect:
 /odom.pose.pose.position.y
 ```
 
-You can also load the recorder CSV directly into PlotJuggler and inspect `axis_distance`, `remaining_distance`, `odom_ref_error`, and `scale_estimate`.
+recorder CSV를 PlotJuggler에 직접 load해서 `axis_distance`, `remaining_distance`, `odom_ref_error`, `scale_estimate`를 확인할 수도 있다.
 
-## Spreadsheet Review
+## Spreadsheet 확인
 
-Open the generated CSV in Excel, LibreOffice, Google Sheets, or another spreadsheet. The most useful columns for a quick sanity check are:
+생성된 CSV는 Excel, LibreOffice, Google Sheets 같은 spreadsheet 도구에서 열 수 있다. 빠른 sanity check에는 다음 컬럼이 유용하다.
 
 ```text
 time_sec

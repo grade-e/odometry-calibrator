@@ -1,25 +1,25 @@
 # Odometry Calibrator
 
-ROS 2 Python package for straight-line odometry scale calibration.
+직선 주행 기반 wheel odometry scale 보정을 위한 ROS 2 Python 패키지다.
 
-Omni drive robots can calibrate +x, -x, +y, and -y odometry independently.
+omni drive 로봇은 +x, -x, +y, -y 방향을 독립적으로 확인하고 보정할 수 있다.
 
-## Concept
+## 개념
 
-The `odom_linear_calibrator` node moves the robot along one selected linear axis and direction, reads odometry from the configured odom topic, waits for the operator to enter the actual measured travel distance, then calculates:
+`odom_linear_calibrator` 노드는 선택한 축과 방향으로 로봇을 이동시킨다. 이후 configured odom topic에서 odometry 이동 거리를 읽고, 작업자가 입력한 실제 측정 거리와 비교해 scale factor를 계산한다.
 
 ```text
 K_x = D_actual / D_odom_x
 K_y = D_actual / D_odom_y
 ```
 
-`/cmd_vel` is used only to move the robot. The configured odom topic is used to calculate the odometry-reported travel distance. `D_actual` must come from an external measurement, such as a tape measure, floor marks, marker tracking, or another ground-truth source.
+`/cmd_vel`은 로봇 이동 명령에만 사용된다. configured odom topic은 odometry가 보고한 이동 거리 계산에 사용된다. `D_actual`은 줄자, 바닥 마킹, marker tracking, 외부 ground truth 등 별도 측정 수단으로 얻어야 한다.
 
-The measurement input is behind a `MeasurementProvider` interface. The initial implementation uses `CliMeasurementProvider`; a future marker-based provider can be added without coupling it to the calibration node.
+측정값 입력은 `MeasurementProvider` 인터페이스 뒤에 있다. 현재 구현은 `CliMeasurementProvider`를 사용하며, 나중에 marker 기반 provider를 추가해도 calibration node와 강하게 결합되지 않도록 구성되어 있다.
 
-The configured odom topic subscription uses ROS 2 sensor-data QoS so it can connect to best-effort odometry publishers commonly used on robots. The `/cmd_vel` publisher keeps the default reliable QoS.
+configured odom topic subscription은 ROS 2 sensor-data QoS를 사용한다. 따라서 로봇에서 흔히 쓰는 best-effort odometry publisher와 연결할 수 있다. `/cmd_vel` publisher는 기본 reliable QoS를 유지한다.
 
-## Build
+## 빌드
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -27,7 +27,7 @@ colcon build --packages-select odometry_calibrator
 source install/setup.bash
 ```
 
-## Nodes
+## 실행 파일
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator
@@ -35,38 +35,40 @@ ros2 run odometry_calibrator test_mock_odom_publisher
 ros2 run odometry_calibrator motion_data_recorder
 ```
 
-## Documentation
+`test_mock_odom_publisher`는 smoke test support용 실행 파일이다. 실제 runtime 기능 노드나 robot simulator로 취급하지 않는다.
 
-- Detailed usage and architecture: `docs/usage_and_architecture.md`
-- Motion data recording details: `docs/data_recording.md`
+## 문서
 
-## Direction Examples
+- 상세 사용법과 구조: `docs/usage_and_architecture.md`
+- motion data recording 상세: `docs/data_recording.md`
 
-+x direction:
+## 방향별 실행 예시
+
++x 방향:
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=x -p direction:=1
 ```
 
--x direction:
+-x 방향:
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=x -p direction:=-1
 ```
 
-+y direction:
++y 방향:
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
 ```
 
--y direction:
+-y 방향:
 
 ```bash
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=-1
 ```
 
-The command velocity mapping is:
+command velocity mapping은 다음과 같다.
 
 ```text
 axis: x, direction:  1  -> /cmd_vel.linear.x = +v_cmd
@@ -75,23 +77,23 @@ axis: y, direction:  1  -> /cmd_vel.linear.y = +v_cmd
 axis: y, direction: -1  -> /cmd_vel.linear.y = -v_cmd
 ```
 
-ROS 2 parameter parsing treats unquoted `y` as YAML boolean true; this node maps that value to the y axis. Use quoted values in YAML files, for example `axis: "y"`.
+ROS 2 parameter parsing에서는 quote 없는 `y`가 YAML boolean `true`로 해석될 수 있다. 이 노드는 해당 값을 y축으로 매핑하지만, YAML 파일에서는 `axis: "y"`처럼 quote를 사용하는 것을 권장한다.
 
-## Measurement Input
+## 측정값 입력
 
-After the robot stops, the node prompts:
+로봇이 정지하면 노드는 다음 프롬프트를 출력한다.
 
 ```text
 Enter actual measured distance [m]:
 ```
 
-Enter the measured real-world travel distance in meters:
+실제 주행 거리를 meter 단위로 입력한다.
 
 ```text
 Enter actual measured distance [m]: 0.985
 ```
 
-Example output:
+출력 예시:
 
 ```text
 Axis      : x
@@ -101,7 +103,7 @@ D_actual  : 0.492 m
 K_x(+1)   : 0.984000
 ```
 
-or:
+다른 예시:
 
 ```text
 Axis      : y
@@ -111,9 +113,9 @@ D_actual  : 0.486 m
 K_y(-1)   : 0.972000
 ```
 
-## Parameters
+## 파라미터
 
-Defaults are provided in `config/odom_linear_calibration.yaml`.
+기본값은 `config/odom_linear_calibration.yaml`에 있다.
 
 ```yaml
 odom_topic: /odom
@@ -132,7 +134,7 @@ motion_timeout_sec: 20.0
 keep_alive_after_done: true
 ```
 
-Mock smoke-test defaults:
+smoke test support용 mock odometry 기본값:
 
 ```yaml
 mock_axis: "x"
@@ -141,49 +143,49 @@ publish_rate_hz: 20.0
 mock_speed: 0.05
 ```
 
-## Launch Mock Test
+## Mock Smoke Test
 
-The package includes `test_mock_odom_publisher` for smoke-test support. It publishes fixed-speed mock odometry, does not subscribe to `/cmd_vel`, and should not be treated as a robot simulator.
+패키지는 smoke test support용 `test_mock_odom_publisher`를 포함한다. 이 실행 파일은 fixed-speed mock odometry를 publish한다. `/cmd_vel`을 subscribe하지 않으며 실제 robot simulator가 아니다.
 
 ```bash
 ros2 launch odometry_calibrator test_calibration.launch.py
 ```
 
-The test calibration launch uses `test_mock_odom_publisher` internally.
+`test_calibration.launch.py`는 내부적으로 `test_mock_odom_publisher`를 실행한다.
 
-The mock launch overrides `odom_topic` to `/odometry_calibrator/mock_odom` so it does not mix with a real robot `/odom` publisher.
+mock launch는 실제 로봇의 `/odom` publisher와 섞이지 않도록 `odom_topic`을 `/odometry_calibrator/mock_odom`으로 override한다.
 
-For y-axis mock testing:
+y축 mock test를 수동으로 실행하려면:
 
 ```bash
 ros2 run odometry_calibrator test_mock_odom_publisher --ros-args -p mock_axis:=y -p direction:=1
 ros2 run odometry_calibrator odom_linear_calibrator --ros-args -p axis:=y -p direction:=1
 ```
 
-## Motion Data Recording
+## Motion Data 기록
 
-`motion_data_recorder` is a separate node for recording motion data. It does not command the robot and does not calculate the final calibration scale factor. The role split is:
+`motion_data_recorder`는 motion data를 기록하는 독립 노드다. 로봇을 움직이지 않고, 최종 calibration scale factor도 계산하지 않는다. 역할 분리는 다음과 같다.
 
 ```text
 odom_linear_calibrator
-- command one calibration move
-- wait for measured distance input
-- calculate K_x or K_y
+- calibration 주행 명령
+- 실제 측정 거리 입력 대기
+- K_x 또는 K_y 계산
 
 motion_data_recorder
-- subscribe to /cmd_vel and the configured odom topic
-- optionally subscribe to a PoseStamped reference pose topic
-- write CSV rows at a fixed rate
-- print a shutdown summary
+- /cmd_vel과 configured odom topic 구독
+- optional PoseStamped reference pose topic 구독
+- 고정 주기로 CSV row 저장
+- shutdown summary 출력
 ```
 
-Run with the default config:
+기본 config로 실행:
 
 ```bash
 ros2 launch odometry_calibrator data_recording.launch.py
 ```
 
-Or run directly:
+직접 실행:
 
 ```bash
 ros2 run odometry_calibrator motion_data_recorder --ros-args \
@@ -192,23 +194,23 @@ ros2 run odometry_calibrator motion_data_recorder --ros-args \
   -p target_distance:=0.5
 ```
 
-CSV files are written to `logs/` by default:
+CSV 파일은 기본적으로 `logs/` 아래에 저장된다.
 
 ```text
 logs/motion_20260605_203015.csv
 ```
 
-When recording only `test_mock_odom_publisher`, `cmd_vx`, `cmd_vy`, and `cmd_wz` can stay at zero because no `/cmd_vel` publisher is running. The test mock odometry publisher emits odometry at a fixed speed and does not stop based on `/cmd_vel`; stop the recorder near the scenario endpoint when you want the summary distance to match the calibration target.
+`test_mock_odom_publisher`만 기록하는 경우 `/cmd_vel` publisher가 없으므로 `cmd_vx`, `cmd_vy`, `cmd_wz`는 0으로 유지될 수 있다. test mock odometry publisher는 fixed speed로 odometry를 publish하며 `/cmd_vel`에 따라 정지하지 않는다. summary의 최종 거리를 calibration target 근처로 맞추려면 scenario endpoint 근처에서 recorder를 종료한다.
 
-Base CSV columns:
+기본 CSV 컬럼:
 
 ```csv
 time_sec,cmd_vx,cmd_vy,cmd_wz,odom_x,odom_y,odom_yaw,odom_distance,axis_distance,remaining_distance
 ```
 
-`time_sec` is elapsed time after CSV recording actually starts. `odom_distance` is calculated from the first latched odometry pose.
+`time_sec`는 CSV recording이 실제 시작된 뒤의 경과 시간이다. `odom_distance`는 첫 latched odometry pose 기준으로 계산된다.
 
-Reference pose recording can be enabled with a `geometry_msgs/msg/PoseStamped` topic:
+`geometry_msgs/msg/PoseStamped` topic을 이용해 reference pose recording을 켤 수 있다.
 
 ```bash
 ros2 run odometry_calibrator motion_data_recorder --ros-args \
@@ -216,15 +218,15 @@ ros2 run odometry_calibrator motion_data_recorder --ros-args \
   -p reference_pose_topic:=/reference_pose
 ```
 
-When reference pose recording is enabled, the CSV also includes:
+reference pose recording이 켜져 있으면 CSV에 다음 컬럼이 추가된다.
 
 ```csv
 ref_x,ref_y,ref_yaw,ref_distance,ref_axis_distance,odom_ref_error,error_rate,scale_estimate
 ```
 
-`ref_distance` is calculated from the first latched reference pose.
+`ref_distance`는 첫 latched reference pose 기준으로 계산된다.
 
-Example summary:
+summary 예시:
 
 ```text
 === Motion Data Summary ===
@@ -240,39 +242,39 @@ Avg cmd velocity    : 0.092 m/s
 CSV saved           : logs/motion_20260605_203015.csv
 ```
 
-The recorder only writes CSV data and prints a summary. Visualization should be done with external tools such as PlotJuggler, spreadsheets, notebooks, or separate optional scripts.
+recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
 
-More details are in `docs/data_recording.md`.
+자세한 내용은 `docs/data_recording.md`를 참고한다.
 
-## Expected Flow
+## 동작 흐름
 
-1. `odom_linear_calibrator` waits for the first valid odometry sample on the configured odom topic and latches it as the start pose.
-2. The node publishes signed `/cmd_vel.linear.x` or `/cmd_vel.linear.y` according to `axis` and `direction`, with acceleration limiting.
-3. Near the target distance, on timeout, or below minimum commanded velocity, it transitions to `WAIT_FOR_MEASUREMENT`.
-4. While waiting, the node continuously publishes zero velocity at least 10 Hz.
-5. Enter a measured distance in meters:
+1. `odom_linear_calibrator`는 configured odom topic에서 첫 유효한 odometry sample을 기다리고, 이를 start pose로 latch한다.
+2. 노드는 `axis`와 `direction`에 따라 signed `/cmd_vel.linear.x` 또는 `/cmd_vel.linear.y`를 publish하며 acceleration limit을 적용한다.
+3. target distance 근처에 도달하거나, timeout이 발생하거나, command velocity가 minimum 아래로 내려가면 `WAIT_FOR_MEASUREMENT`로 전이한다.
+4. 측정값 입력 대기 중에는 최소 10 Hz로 zero velocity를 계속 publish한다.
+5. meter 단위 실제 측정 거리를 입력한다.
 
 ```text
 Enter actual measured distance [m]: 0.985
 ```
 
-6. The node prints `Axis`, `Direction`, `D_odom`, `D_actual`, and `K_x(+/-1)` or `K_y(+/-1)`.
+6. 노드는 `Axis`, `Direction`, `D_odom`, `D_actual`, `K_x(+/-1)` 또는 `K_y(+/-1)`를 출력한다.
 
-## Notes
+## 참고 사항
 
-- Run x and y calibration separately for omni drive robots.
-- Calibrate on a flat surface with enough clearance.
-- Use a consistent robot reference point when measuring `D_actual`.
-- Keep motion slow enough to reduce slip and overshoot.
+- omni drive 로봇은 x축과 y축을 별도로 calibration한다.
+- 충분한 공간이 있는 평평한 바닥에서 수행한다.
+- `D_actual` 측정 시 로봇 기준점을 일관되게 유지한다.
+- slip과 overshoot를 줄이기 위해 낮은 속도로 시작한다.
 
-## Safety Checklist Before Real Robot Test
+## 실제 로봇 테스트 전 안전 체크리스트
 
-- Verify behavior with the mock launch before connecting to a real AMR.
-- Confirm that `/cmd_vel` matches the real robot control topic.
-- Confirm that `/odom` matches the real wheel odometry topic.
-- Confirm that the `axis` and `direction` combination matches the intended travel direction.
-- Prepare an emergency stop or another manual stop method.
-- Secure a straight driving space longer than `target_distance`.
-- Start with conservative `max_velocity` and `max_acceleration` values.
-- First check command direction with wheels lifted or at very low speed.
-- Confirm that `/cmd_vel` is continuously published as zero while in `WAIT_FOR_MEASUREMENT`.
+- 실제 AMR 연결 전에 mock launch로 흐름을 먼저 검증한다.
+- `/cmd_vel`이 실제 로봇 제어 topic과 일치하는지 확인한다.
+- `/odom`이 실제 wheel odometry topic과 일치하는지 확인한다.
+- `axis`와 `direction` 조합이 의도한 주행 방향과 일치하는지 확인한다.
+- emergency stop 또는 수동 정지 수단을 준비한다.
+- `target_distance`보다 충분히 긴 직선 주행 공간을 확보한다.
+- 처음에는 보수적인 `max_velocity`, `max_acceleration` 값으로 시작한다.
+- 처음에는 바퀴를 띄운 상태 또는 매우 낮은 속도에서 command 방향만 확인한다.
+- `WAIT_FOR_MEASUREMENT` 상태에서 `/cmd_vel`이 zero로 지속 publish되는지 확인한다.

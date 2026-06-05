@@ -11,22 +11,22 @@
 - `odom_linear_calibrator`: 로봇을 지정 거리만큼 움직이고 scale factor를 계산한다.
 - `motion_data_recorder`: `/cmd_vel`, odometry, optional reference pose를 CSV로 저장한다.
 
-시각화는 패키지 내부에서 하지 않는다. CSV는 PlotJuggler, Excel, spreadsheet, Python notebook, 별도 분석 script에서 확인한다.
+시각화는 패키지 내부에서 하지 않는다. CSV는 PlotJuggler, Excel, spreadsheet, Python notebook, 별도 분석 script 같은 외부 도구에서 확인한다.
 
 ## 전체 구성
 
 ```mermaid
 flowchart LR
-    Operator[Operator] -->|measured distance input| Calibrator[odom_linear_calibrator]
+    Operator[작업자] -->|실측 거리 입력| Calibrator[odom_linear_calibrator]
 
     Calibrator -->|Twist| CmdVel[/cmd_vel/]
-    Robot[AMR or Simulator] -->|Odometry| Odom[/odom or configured odom topic/]
+    Robot[AMR 또는 simulator] -->|Odometry| Odom[/odom 또는 configured odom topic/]
     CmdVel --> Robot
     Odom --> Calibrator
 
     CmdVel --> Recorder[motion_data_recorder]
     Odom --> Recorder
-    Reference[Marker, Mocap, Simulator GT] -. PoseStamped .-> RefTopic[/reference_pose/]
+    Reference[Marker, Mocap, simulator GT] -. PoseStamped .-> RefTopic[/reference_pose/]
     RefTopic -. optional .-> Recorder
 
     Recorder --> CSV[(motion CSV)]
@@ -35,7 +35,7 @@ flowchart LR
 
 ## 노드 역할
 
-| Node | 역할 | publish | subscribe | 파일 출력 |
+| 노드 | 역할 | publish | subscribe | 파일 출력 |
 | --- | --- | --- | --- | --- |
 | `odom_linear_calibrator` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` | configured odom topic | 없음 |
 | `test_mock_odom_publisher` | smoke test support용 fixed-speed odometry source | configured mock odom topic | 없음 | 없음 |
@@ -68,7 +68,7 @@ src/odometry_calibrator/
 └── test/
 ```
 
-## Build
+## 빌드
 
 워크스페이스 루트에서 실행한다.
 
@@ -93,18 +93,18 @@ sequenceDiagram
     participant Mock as test_mock_odom_publisher
     participant Cal as odom_linear_calibrator
     participant Cmd as /cmd_vel topic
-    participant User as Operator
+    participant User as 작업자
 
-    Note over Mock: fixed-speed odometry source; does not subscribe to /cmd_vel
+    Note over Mock: fixed-speed odometry source; /cmd_vel을 subscribe하지 않음
     Mock->>Cal: /odometry_calibrator/mock_odom
     Cal->>Cal: latch start odom pose
-    Cal->>Cmd: publish /cmd_vel
-    Mock->>Cal: mock odom distance increases independently
-    Cal->>Cal: target reached
-    Cal->>Cmd: publish zero /cmd_vel
-    Cal->>User: Enter actual measured distance [m]
+    Cal->>Cmd: /cmd_vel publish
+    Mock->>Cal: mock odom distance가 독립적으로 증가
+    Cal->>Cal: target 도달
+    Cal->>Cmd: zero /cmd_vel publish
+    Cal->>User: 실제 측정 거리 입력 요청 [m]
     User->>Cal: D_actual
-    Cal->>User: Axis, Direction, D_odom, D_actual, K
+    Cal->>User: Axis, Direction, D_odom, D_actual, K 출력
 ```
 
 ## 실제 AMR Calibration 절차
@@ -199,12 +199,12 @@ remaining_distance = target_distance - axis_distance
 ```mermaid
 stateDiagram-v2
     [*] --> INIT
-    INIT --> MOVING_ACCEL_LIMIT: first odom latched
-    MOVING_ACCEL_LIMIT --> MOVING_P_CONTROL: near velocity limit or elapsed window
-    MOVING_ACCEL_LIMIT --> WAIT_FOR_MEASUREMENT: target reached or timeout
-    MOVING_P_CONTROL --> WAIT_FOR_MEASUREMENT: target reached, timeout, or low velocity
+    INIT --> MOVING_ACCEL_LIMIT: 첫 odom latch
+    MOVING_ACCEL_LIMIT --> MOVING_P_CONTROL: velocity limit 근처 또는 초기 구간 경과
+    MOVING_ACCEL_LIMIT --> WAIT_FOR_MEASUREMENT: target 도달 또는 timeout
+    MOVING_P_CONTROL --> WAIT_FOR_MEASUREMENT: target 도달, timeout, 또는 low velocity
     WAIT_FOR_MEASUREMENT --> CALCULATE: D_actual entered
-    CALCULATE --> DONE: result printed
+    CALCULATE --> DONE: 결과 출력
     DONE --> [*]: keep_alive_after_done=false
 ```
 
@@ -264,13 +264,13 @@ logs/calibration_x_pos_20260605_203015.csv
 
 ```mermaid
 flowchart TD
-    Start([Node started])
-    WaitOdom[Wait for first valid odom]
+    Start([Node 시작])
+    WaitOdom[첫 유효한 odom 대기]
     LatchOdom[Latch start_odom_x, start_odom_y]
     UseRef{use_reference_pose?}
-    WaitRef[Wait for first valid PoseStamped reference]
+    WaitRef[첫 유효한 PoseStamped reference 대기]
     LatchRef[Latch start_ref_x, start_ref_y]
-    Record[Start CSV recording and latch recording start_time]
+    Record[CSV recording 시작 및 recording start_time latch]
 
     Start --> WaitOdom --> LatchOdom --> UseRef
     UseRef -->|false| Record
@@ -281,7 +281,7 @@ Callback에서는 파일을 쓰지 않는다. 최신 message와 timestamp만 저
 
 ```mermaid
 flowchart LR
-    CmdCb[/cmd_vel callback/] --> Latest[latest samples + Lock]
+    CmdCb[/cmd_vel callback/] --> Latest[최신 sample + Lock]
     OdomCb[/odom callback/] --> Latest
     RefCb[/reference_pose callback/] -. optional .-> Latest
     Timer[record timer] --> Latest
@@ -383,16 +383,16 @@ sequenceDiagram
     participant Rec as motion_data_recorder
     participant Cal as odom_linear_calibrator
     participant Robot as AMR
-    participant User as Operator
+    participant User as 작업자
 
-    Rec->>Robot: subscribe /cmd_vel and /odom
-    Cal->>Robot: publish /cmd_vel
-    Robot->>Cal: publish /odom
-    Robot->>Rec: publish /odom
-    Cal->>User: ask D_actual after stop
-    User->>Cal: enter measured distance
-    Cal->>User: print K result
-    Rec->>User: print motion summary on shutdown
+    Rec->>Robot: /cmd_vel 및 /odom 구독
+    Cal->>Robot: /cmd_vel publish
+    Robot->>Cal: /odom publish
+    Robot->>Rec: /odom publish
+    Cal->>User: 정지 후 D_actual 입력 요청
+    User->>Cal: 실측 거리 입력
+    Cal->>User: K 결과 출력
+    Rec->>User: shutdown 시 motion summary 출력
 ```
 
 ## Reference Pose와 함께 기록
@@ -478,7 +478,7 @@ Excel, LibreOffice, Google Sheets에서는 `time_sec`를 x축으로 두고 `axis
 
 ### odom_linear_calibrator
 
-| parameter | default | 설명 |
+| 파라미터 | 기본값 | 설명 |
 | --- | ---: | --- |
 | `odom_topic` | `/odom` | odometry 입력 topic |
 | `cmd_vel_topic` | `/cmd_vel` | command velocity 출력 topic |
@@ -492,7 +492,7 @@ Excel, LibreOffice, Google Sheets에서는 `time_sec`를 x축으로 두고 `axis
 
 ### motion_data_recorder
 
-| parameter | default | 설명 |
+| 파라미터 | 기본값 | 설명 |
 | --- | ---: | --- |
 | `odom_topic` | `/odom` | odometry 입력 topic |
 | `cmd_vel_topic` | `/cmd_vel` | command velocity 입력 topic |
@@ -534,7 +534,7 @@ axis: "y"
 다음을 확인한다.
 
 - odom topic이 실제 publish되고 있는가
-- `odom_topic` parameter가 실제 topic 이름과 같은가
+- `odom_topic` 파라미터가 실제 topic 이름과 같은가
 - `use_reference_pose=true`인데 reference pose가 publish되지 않는 상태는 아닌가
 - `output_dir`에 write 권한이 있는가
 
