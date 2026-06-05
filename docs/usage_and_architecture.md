@@ -35,11 +35,13 @@ flowchart LR
 
 ## 노드 역할
 
-| 노드 | 역할 | publish | subscribe | 파일 출력 |
-| --- | --- | --- | --- | --- |
-| `odom_linear_calibrator` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` | configured odom topic | 없음 |
-| `test_mock_odom_publisher` | smoke test support용 fixed-speed odometry source | configured mock odom topic | 없음 | 없음 |
-| `motion_data_recorder` | command/odom/reference 데이터를 CSV로 기록 | 없음 | configured `/cmd_vel`, configured odom topic, optional reference pose | CSV |
+| 노드 | 내부 module | 역할 | publish | subscribe | 파일 출력 |
+| --- | --- | --- | --- | --- | --- |
+| `odom_linear_calibrator` | `calibration` | 목표 거리 주행, 실측 거리 입력, scale factor 계산 | configured `/cmd_vel` | configured odom topic | 없음 |
+| `test_mock_odom_publisher` | `test_support` | smoke test support용 fixed-speed odometry source | configured mock odom topic | 없음 | 없음 |
+| `motion_data_recorder` | `recording` | command/odom/reference 데이터를 CSV로 기록 | 없음 | configured `/cmd_vel`, configured odom topic, optional reference pose | CSV |
+
+내부 구현은 `calibration`, `recording`, `common`, `test_support` module로 나뉘지만 ROS 2 package는 하나의 `odometry_calibrator`로 유지한다. 공통 axis/direction 처리, pose 계산, parameter validation, 결과 formatting은 `common` module에 둔다.
 
 ## 디렉토리 구조
 
@@ -58,16 +60,25 @@ flowchart LR
         │   ├── test_calibration.launch.py
         │   └── data_recording.launch.py
         ├── odometry_calibrator/
-        │   ├── odom_linear_calibrator.py
-        │   ├── motion_data_recorder.py
+        │   ├── calibration/
+        │   │   ├── __init__.py
+        │   │   ├── odom_linear_calibrator.py
+        │   │   ├── cli_measurement_provider.py
+        │   │   └── measurement_provider.py
+        │   ├── recording/
+        │   │   ├── __init__.py
+        │   │   └── motion_data_recorder.py
+        │   ├── common/
+        │   │   ├── __init__.py
+        │   │   ├── axis.py
+        │   │   ├── motion_metrics.py
+        │   │   ├── parameters.py
+        │   │   ├── pose_utils.py
+        │   │   └── result.py
         │   ├── test_support/
         │   │   ├── __init__.py
         │   │   └── mock_odom_publisher.py
-        │   ├── axis.py
-        │   ├── motion_metrics.py
-        │   ├── pose_utils.py
-        │   ├── parameters.py
-        │   └── result.py
+        │   └── __init__.py
         └── test/
 ```
 

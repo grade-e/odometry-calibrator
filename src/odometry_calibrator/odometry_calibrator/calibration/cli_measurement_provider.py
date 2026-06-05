@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 
-from odometry_calibrator.measurement_provider import MeasurementProvider
+from odometry_calibrator.calibration.measurement_provider import MeasurementProvider
 
 
 MAX_REASONABLE_MEASUREMENT_METERS = 10.0

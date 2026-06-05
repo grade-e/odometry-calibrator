@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.parameters import validate_positive_finite
+from odometry_calibrator.common.parameters import validate_positive_finite
 import pytest
 
 

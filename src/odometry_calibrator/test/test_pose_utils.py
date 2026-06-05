@@ -14,8 +14,8 @@
 
 from types import SimpleNamespace
 
-from odometry_calibrator.pose_utils import distance_2d
-from odometry_calibrator.pose_utils import yaw_from_quaternion
+from odometry_calibrator.common.pose_utils import distance_2d
+from odometry_calibrator.common.pose_utils import yaw_from_quaternion
 
 
 def test_yaw_from_identity_quaternion_is_zero():

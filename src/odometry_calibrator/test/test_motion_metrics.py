@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.motion_metrics import compute_axis_distance
-from odometry_calibrator.motion_metrics import compute_remaining_distance
-from odometry_calibrator.motion_metrics import safe_ratio
+from odometry_calibrator.common.motion_metrics import compute_axis_distance
+from odometry_calibrator.common.motion_metrics import compute_remaining_distance
+from odometry_calibrator.common.motion_metrics import safe_ratio
 
 
 def test_compute_axis_distance_for_positive_x_motion():

@@ -15,11 +15,11 @@
 import math
 
 from nav_msgs.msg import Odometry
-from odometry_calibrator.axis import normalize_axis
-from odometry_calibrator.axis import normalize_direction
-from odometry_calibrator.axis import VALID_AXES
-from odometry_calibrator.axis import VALID_DIRECTIONS
-from odometry_calibrator.parameters import validate_positive_finite
+from odometry_calibrator.common.axis import normalize_axis
+from odometry_calibrator.common.axis import normalize_direction
+from odometry_calibrator.common.axis import VALID_AXES
+from odometry_calibrator.common.axis import VALID_DIRECTIONS
+from odometry_calibrator.common.parameters import validate_positive_finite
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.executors import ExternalShutdownException

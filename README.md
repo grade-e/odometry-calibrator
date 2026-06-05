@@ -38,6 +38,8 @@ ros2 run odometry_calibrator motion_data_recorder
 
 `test_mock_odom_publisher`는 smoke test support용 실행 파일이다. 실제 runtime 기능 노드나 robot simulator로 취급하지 않는다.
 
+내부 구현은 `calibration`, `recording`, `common`, `test_support` module로 분리되어 있지만, ROS 2 package는 현재 `odometry_calibrator` 하나로 유지한다. 사용자 실행 명령은 위 command name을 기준으로 사용한다.
+
 ## 문서
 
 - 상세 사용법과 구조: `docs/usage_and_architecture.md`

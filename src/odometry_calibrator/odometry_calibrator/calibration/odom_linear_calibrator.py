@@ -19,14 +19,14 @@ from threading import Lock
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from odometry_calibrator.axis import normalize_axis
-from odometry_calibrator.axis import normalize_direction
-from odometry_calibrator.axis import OdomDistanceCalculator
-from odometry_calibrator.axis import signed_linear_components
-from odometry_calibrator.axis import VALID_AXES
-from odometry_calibrator.axis import VALID_DIRECTIONS
-from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
-from odometry_calibrator.result import format_calibration_result
+from odometry_calibrator.calibration.cli_measurement_provider import CliMeasurementProvider
+from odometry_calibrator.common.axis import normalize_axis
+from odometry_calibrator.common.axis import normalize_direction
+from odometry_calibrator.common.axis import OdomDistanceCalculator
+from odometry_calibrator.common.axis import signed_linear_components
+from odometry_calibrator.common.axis import VALID_AXES
+from odometry_calibrator.common.axis import VALID_DIRECTIONS
+from odometry_calibrator.common.result import format_calibration_result
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.executors import ExternalShutdownException

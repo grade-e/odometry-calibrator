@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.parameters import normalize_reference_pose_topic
+from odometry_calibrator.common.parameters import normalize_reference_pose_topic
 import pytest
 
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.result import format_calibration_result
+from odometry_calibrator.common.result import format_calibration_result
 
 
 def test_format_calibration_result_includes_positive_x_label():

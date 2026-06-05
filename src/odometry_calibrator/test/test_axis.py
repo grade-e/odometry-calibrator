@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.axis import normalize_axis
-from odometry_calibrator.axis import OdomDistanceCalculator
+from odometry_calibrator.common.axis import normalize_axis
+from odometry_calibrator.common.axis import OdomDistanceCalculator
 
 
 def test_normalize_axis_accepts_ros_yaml_boolean_y():

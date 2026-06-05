@@ -41,10 +41,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'odom_linear_calibrator = odometry_calibrator.odom_linear_calibrator:main',
+            'odom_linear_calibrator = odometry_calibrator.calibration.odom_linear_calibrator:main',
             'test_mock_odom_publisher = '
             'odometry_calibrator.test_support.mock_odom_publisher:main',
-            'motion_data_recorder = odometry_calibrator.motion_data_recorder:main',
+            'motion_data_recorder = odometry_calibrator.recording.motion_data_recorder:main',
         ],
     },
 )

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from odometry_calibrator.cli_measurement_provider import CliMeasurementProvider
+from odometry_calibrator.calibration.cli_measurement_provider import CliMeasurementProvider
 import pytest
 
 
