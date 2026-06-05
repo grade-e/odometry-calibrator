@@ -52,6 +52,7 @@ flowchart LR
 │   ├── architecture.md
 │   ├── calibration.md
 │   ├── data_recording.md
+│   ├── turtlebot3_gazebo_test.md
 │   └── troubleshooting.md
 └── src/
     └── odometry_calibrator/
