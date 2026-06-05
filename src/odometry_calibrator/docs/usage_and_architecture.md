@@ -90,14 +90,16 @@ ros2 launch odometry_calibrator test_calibration.launch.py
 sequenceDiagram
     participant Mock as mock_odom_publisher
     participant Cal as odom_linear_calibrator
+    participant Cmd as /cmd_vel topic
     participant User as Operator
 
+    Note over Mock: fixed-speed odometry source; does not subscribe to /cmd_vel
     Mock->>Cal: /odometry_calibrator/mock_odom
     Cal->>Cal: latch start odom pose
-    Cal->>Mock: /cmd_vel
-    Mock->>Cal: odom distance increases
+    Cal->>Cmd: publish /cmd_vel
+    Mock->>Cal: mock odom distance increases independently
     Cal->>Cal: target reached
-    Cal->>Mock: zero /cmd_vel
+    Cal->>Cmd: publish zero /cmd_vel
     Cal->>User: Enter actual measured distance [m]
     User->>Cal: D_actual
     Cal->>User: Axis, Direction, D_odom, D_actual, K
@@ -262,11 +264,11 @@ logs/calibration_x_pos_20260605_203015.csv
 flowchart TD
     Start([Node started])
     WaitOdom[Wait for first valid odom]
-    LatchOdom[Latch start_odom_x, start_odom_y, start_time]
+    LatchOdom[Latch start_odom_x, start_odom_y]
     UseRef{use_reference_pose?}
     WaitRef[Wait for first valid PoseStamped reference]
     LatchRef[Latch start_ref_x, start_ref_y]
-    Record[Start CSV recording]
+    Record[Start CSV recording and latch recording start_time]
 
     Start --> WaitOdom --> LatchOdom --> UseRef
     UseRef -->|false| Record
