@@ -103,6 +103,19 @@ ros2 launch odometry_calibrator test_calibration.launch.py
 
 이 launch는 실제 `/odom`과 충돌하지 않도록 odom topic을 `/odometry_calibrator/mock_odom`으로 override한다.
 
+`test_mock_odom_publisher`는 fixed-speed odometry source이다. `/cmd_vel`을 subscribe하지 않고, robot simulator처럼 command를 추종하지 않는다.
+
+mock launch의 topic 연결은 다음과 같다.
+
+```mermaid
+flowchart LR
+    mock["test_mock_odom_publisher"] -->|publish| mock_odom["/odometry_calibrator/mock_odom"]
+    mock_odom --> calibrator["odom_linear_calibrator"]
+    calibrator -->|publish| cmd_vel["/cmd_vel"]
+```
+
+calibration 절차는 다음 순서로 진행된다.
+
 ```mermaid
 sequenceDiagram
     participant Mock as test_mock_odom_publisher
@@ -110,11 +123,9 @@ sequenceDiagram
     participant Cmd as cmd_vel topic
     participant User as 작업자
 
-    Note over Mock: fixed-speed odometry source; no cmd_vel subscription
-    Mock->>Cal: mock odom topic
+    Mock->>Cal: publish mock odom
     Cal->>Cal: latch start odom pose
     Cal->>Cmd: publish velocity command
-    Mock->>Cal: mock odom distance increases independently
     Cal->>Cal: target reached
     Cal->>Cmd: publish zero velocity
     Cal->>User: request actual measured distance
