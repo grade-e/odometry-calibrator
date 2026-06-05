@@ -243,7 +243,7 @@ Avg cmd velocity    : 0.092 m/s
 CSV saved           : logs/motion_20260605_203015.csv
 ```
 
-recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
+recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. topic 연결 확인은 `rqt_graph`를 사용하고, 데이터 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
 
 자세한 내용은 `docs/data_recording.md`를 참고한다.
 

@@ -6,7 +6,7 @@
 
 `motion_data_recorder`는 command velocity, odometry, optional reference pose data를 시간 기준으로 CSV에 기록한다. 실제 AMR 저속 점검, calibrator 실행 중 기록, mock smoke test, rosbag replay 분석, 향후 외부 기준 pose 비교에 사용할 수 있다.
 
-recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
+recorder는 CSV data를 저장하고 summary를 출력하는 역할만 한다. topic 연결 확인은 `rqt_graph`를 사용하고, 데이터 시각화는 PlotJuggler, spreadsheet, notebook, 별도 optional script 같은 외부 도구에서 수행한다.
 
 ## 역할 분리
 
@@ -133,9 +133,59 @@ ros2 bag record /cmd_vel /odom /reference_pose
 
 rosbag replay 중 `motion_data_recorder`를 실행하면 replay된 topic에서 CSV를 다시 만들 수 있다.
 
+## rqt_graph로 연결 확인
+
+`rqt_graph`는 데이터 값을 보는 도구가 아니라 ROS graph의 node/topic 연결 관계를 확인하는 도구다. 다음을 확인할 때 사용한다.
+
+- `odom_linear_calibrator`가 configured `/cmd_vel`을 publish하는지
+- `odom_linear_calibrator`가 configured odom topic을 subscribe하는지
+- `motion_data_recorder`가 `/cmd_vel`과 configured odom topic을 subscribe하는지
+- `test_mock_odom_publisher`가 mock odom topic을 publish하는지
+- topic 이름 mismatch가 있는지
+
+실행 예:
+
+```bash
+rqt_graph
+```
+
+mock launch 기준으로 기대되는 연결:
+
+```text
+test_mock_odom_publisher
+  -> /odometry_calibrator/mock_odom
+      -> odom_linear_calibrator
+
+odom_linear_calibrator
+  -> /cmd_vel
+```
+
+recorder까지 함께 실행하면 기대 구조는 다음과 같다.
+
+```text
+test_mock_odom_publisher
+  -> /odometry_calibrator/mock_odom
+      -> odom_linear_calibrator
+      -> motion_data_recorder
+
+odom_linear_calibrator
+  -> /cmd_vel
+      -> motion_data_recorder
+```
+
+`rqt_graph`에서 연결이 보이지 않으면 먼저 topic 이름과 parameter override를 확인한다. 실제 수치 값은 `rqt_graph`가 아니라 `ros2 topic echo`, PlotJuggler, 또는 recorder CSV로 확인한다.
+
 ## PlotJuggler
 
-ROS topic을 직접 볼 때 유용한 field:
+PlotJuggler는 ROS topic 또는 recorder CSV를 시계열로 확인할 때 사용한다.
+
+ROS topic을 직접 보려면 PlotJuggler를 실행한 뒤 ROS 2 data streamer를 사용해 topic을 subscribe한다.
+
+```bash
+plotjuggler
+```
+
+ROS topic에서 먼저 보기 좋은 field:
 
 ```text
 /cmd_vel.linear.x
@@ -144,7 +194,20 @@ ROS topic을 직접 볼 때 유용한 field:
 /odom.pose.pose.position.y
 ```
 
-recorder CSV를 PlotJuggler에 직접 load해서 `axis_distance`, `remaining_distance`, `odom_ref_error`, `scale_estimate`를 확인할 수도 있다.
+recorder CSV를 직접 load하는 경우에는 다음 조합을 우선 확인한다.
+
+```text
+time_sec vs axis_distance
+time_sec vs remaining_distance
+time_sec vs cmd_vx
+time_sec vs cmd_vy
+time_sec vs odom_distance
+time_sec vs ref_axis_distance
+time_sec vs odom_ref_error
+time_sec vs scale_estimate
+```
+
+일반 calibration에서는 `axis_distance`가 증가하고 `remaining_distance`가 0 근처로 감소하는지 확인한다. reference pose를 함께 기록한 경우 `axis_distance`와 `ref_axis_distance`의 차이, `scale_estimate`의 안정성을 확인한다.
 
 ## Spreadsheet 확인
 
