@@ -44,28 +44,31 @@ flowchart LR
 ## 디렉토리 구조
 
 ```text
-src/odometry_calibrator/
-├── config/
-│   ├── odom_linear_calibration.yaml
-│   └── motion_data_recording.yaml
+.
+├── README.md
 ├── docs/
 │   ├── data_recording.md
 │   └── usage_and_architecture.md
-├── launch/
-│   ├── test_calibration.launch.py
-│   └── data_recording.launch.py
-├── odometry_calibrator/
-│   ├── odom_linear_calibrator.py
-│   ├── motion_data_recorder.py
-│   ├── test_support/
-│   │   ├── __init__.py
-│   │   └── mock_odom_publisher.py
-│   ├── axis.py
-│   ├── motion_metrics.py
-│   ├── pose_utils.py
-│   ├── parameters.py
-│   └── result.py
-└── test/
+└── src/
+    └── odometry_calibrator/
+        ├── config/
+        │   ├── odom_linear_calibration.yaml
+        │   └── motion_data_recording.yaml
+        ├── launch/
+        │   ├── test_calibration.launch.py
+        │   └── data_recording.launch.py
+        ├── odometry_calibrator/
+        │   ├── odom_linear_calibrator.py
+        │   ├── motion_data_recorder.py
+        │   ├── test_support/
+        │   │   ├── __init__.py
+        │   │   └── mock_odom_publisher.py
+        │   ├── axis.py
+        │   ├── motion_metrics.py
+        │   ├── pose_utils.py
+        │   ├── parameters.py
+        │   └── result.py
+        └── test/
 ```
 
 ## 빌드
