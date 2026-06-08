@@ -20,6 +20,9 @@ from threading import Lock
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from odometry_calibrator.calibration.cli_measurement_provider import CliMeasurementProvider
+from odometry_calibrator.calibration.parameter_measurement_provider import (
+    ParameterMeasurementProvider,
+)
 from odometry_calibrator.common.axis import normalize_axis
 from odometry_calibrator.common.axis import normalize_direction
 from odometry_calibrator.common.axis import OdomDistanceCalculator
@@ -27,6 +30,13 @@ from odometry_calibrator.common.axis import signed_linear_components
 from odometry_calibrator.common.axis import VALID_AXES
 from odometry_calibrator.common.axis import VALID_DIRECTIONS
 from odometry_calibrator.common.result import format_calibration_result
+from odometry_calibrator.integration import exit_codes
+from odometry_calibrator.integration.artifact_writer import ArtifactWriter
+from odometry_calibrator.integration.event_writer import EventWriter
+from odometry_calibrator.integration.result_schema import build_calibration_result
+from odometry_calibrator.integration.result_schema import STATUS_FAILED
+from odometry_calibrator.integration.result_schema import STATUS_SUCCESS
+from odometry_calibrator.integration.result_schema import STATUS_TIMEOUT
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -46,6 +56,12 @@ CONTROL_MODE_ALIASES = {
     'normal': CONTROL_MODE_CONSTANT,
     'p_min_velocity': CONTROL_MODE_P_MIN_CLAMPED,
 }
+MEASUREMENT_SOURCE_CLI = 'cli'
+MEASUREMENT_SOURCE_PARAMETER = 'parameter'
+VALID_MEASUREMENT_SOURCES = (
+    MEASUREMENT_SOURCE_CLI,
+    MEASUREMENT_SOURCE_PARAMETER,
+)
 VALID_CONTROL_MODES = (
     CONTROL_MODE_CONSTANT,
     CONTROL_MODE_P,
@@ -87,14 +103,32 @@ class Parameters:
     stop_publish_rate_hz: float = 10.0
     motion_timeout_sec: float = 30.0
     keep_alive_after_done: bool = True
+    output_dir: str = 'logs'
+    result_filename: str = 'result.json'
+    events_filename: str = 'events.jsonl'
+    measurement_source: str = MEASUREMENT_SOURCE_CLI
+    actual_distance_m: float = 0.0
+    result_status_mode: str = 'calculate_only'
+
+
+class InvalidCalibrationParameterError(RuntimeError):
+    """Raised when ROS parameters do not satisfy the calibrator contract."""
 
 
 class OdomLinearCalibrator(Node):
     def __init__(self, measurement_provider=None):
         super().__init__('odom_linear_calibrator')
-        self._measurement_provider = measurement_provider or CliMeasurementProvider()
         self._params = self._declare_and_load_parameters()
+        self._artifact_writer = ArtifactWriter(
+            self._params.output_dir,
+            self._params.result_filename,
+            self._params.events_filename,
+        )
+        self._event_writer = EventWriter(self._artifact_writer.events_path)
         self._validate_parameters()
+        self._measurement_provider = (
+            measurement_provider or self._create_measurement_provider()
+        )
 
         self._state = State.INIT
         self._distance_calculator = OdomDistanceCalculator()
@@ -106,8 +140,17 @@ class OdomLinearCalibrator(Node):
         self._last_control_time = None
         self._last_cmd_velocity = 0.0
         self._calculation_done = False
+        self._exit_code = exit_codes.SUCCESS
+        self._motion_timed_out = False
         self._last_nonfinite_warn_ns = 0
         self._last_reverse_motion_warn_ns = 0
+
+        self._artifact_writer.ensure_output_dir()
+        self._event_writer.write(
+            'started',
+            axis=self._params.axis,
+            direction=self._params.direction,
+        )
 
         self._cmd_vel_pub = self.create_publisher(
             TwistStamped,
@@ -159,23 +202,47 @@ class OdomLinearCalibrator(Node):
         ):
             value = getattr(self._params, name)
             if value <= 0.0 or not math.isfinite(value):
-                raise RuntimeError(f'{name} must be positive and finite')
+                raise InvalidCalibrationParameterError(
+                    f'{name} must be positive and finite'
+                )
 
         if self._params.min_velocity > self._params.max_velocity:
-            raise RuntimeError('min_velocity must be less than or equal to max_velocity')
+            raise InvalidCalibrationParameterError(
+                'min_velocity must be less than or equal to max_velocity'
+            )
 
         self._params.control_mode = normalize_control_mode(self._params.control_mode)
 
         self._params.axis = normalize_axis(self._params.axis)
         if self._params.axis not in VALID_AXES:
-            raise RuntimeError("axis must be either 'x' or 'y'")
+            raise InvalidCalibrationParameterError("axis must be either 'x' or 'y'")
 
         try:
             self._params.direction = normalize_direction(self._params.direction)
         except ValueError as exc:
-            raise RuntimeError(str(exc)) from exc
+            raise InvalidCalibrationParameterError(str(exc)) from exc
         if self._params.direction not in VALID_DIRECTIONS:
-            raise RuntimeError('direction must be 1 or -1')
+            raise InvalidCalibrationParameterError('direction must be 1 or -1')
+
+        self._params.measurement_source = (
+            str(self._params.measurement_source).strip().lower()
+        )
+        if self._params.measurement_source not in VALID_MEASUREMENT_SOURCES:
+            valid_sources = ', '.join(VALID_MEASUREMENT_SOURCES)
+            raise InvalidCalibrationParameterError(
+                f'measurement_source must be one of: {valid_sources}'
+            )
+
+        if (
+            self._params.measurement_source == MEASUREMENT_SOURCE_PARAMETER and
+            not ParameterMeasurementProvider.is_valid_measurement(
+                self._params.actual_distance_m
+            )
+        ):
+            raise InvalidCalibrationParameterError(
+                'actual_distance_m must be finite and in the range '
+                '0.0 < actual_distance_m <= 10.0 when measurement_source=parameter'
+            )
 
         if self._params.distance_tolerance >= self._params.target_distance:
             self.get_logger().warning(
@@ -189,6 +256,11 @@ class OdomLinearCalibrator(Node):
                 % self._params.stop_publish_rate_hz
             )
             self._params.stop_publish_rate_hz = 10.0
+
+    def _create_measurement_provider(self):
+        if self._params.measurement_source == MEASUREMENT_SOURCE_PARAMETER:
+            return ParameterMeasurementProvider(self._params.actual_distance_m)
+        return CliMeasurementProvider()
 
     def _odom_callback(self, msg):
         x = msg.pose.pose.position.x
@@ -221,15 +293,22 @@ class OdomLinearCalibrator(Node):
     def _warn_nonfinite_odom(self):
         now_ns = self.get_clock().now().nanoseconds
         if now_ns - self._last_nonfinite_warn_ns >= 2_000_000_000:
-            self.get_logger().warning('Ignoring non-finite odometry pose')
+            message = 'Ignoring non-finite odometry pose'
+            self.get_logger().warning(message)
+            self._event_writer.warning(message)
             self._last_nonfinite_warn_ns = now_ns
 
     def _warn_reverse_motion(self, directed_displacement):
         now_ns = self.get_clock().now().nanoseconds
         if now_ns - self._last_reverse_motion_warn_ns >= 2_000_000_000:
-            self.get_logger().warning(
+            message = (
                 'Odometry moved opposite to requested direction on %s axis: %.6f m'
                 % (self._params.axis, directed_displacement)
+            )
+            self.get_logger().warning(message)
+            self._event_writer.warning(
+                message,
+                directed_displacement_m=directed_displacement,
             )
             self._last_reverse_motion_warn_ns = now_ns
 
@@ -261,6 +340,8 @@ class OdomLinearCalibrator(Node):
             return
 
         self.get_logger().info(f'State transition: {self._state.value} -> {next_state.value}')
+        previous_state = self._state
+        self._event_writer.state_transition(previous_state.value, next_state.value)
         self._state = next_state
 
         if self._state == State.WAIT_FOR_MEASUREMENT:
@@ -287,7 +368,15 @@ class OdomLinearCalibrator(Node):
             elapsed >= self._params.motion_timeout_sec
         ):
             if elapsed >= self._params.motion_timeout_sec:
-                self.get_logger().warning('Motion timeout reached before target distance')
+                self._motion_timed_out = True
+                message = 'Motion timeout reached before target distance'
+                self.get_logger().warning(message)
+                self._event_writer.warning(
+                    message,
+                    elapsed_sec=elapsed,
+                    target_distance_m=self._params.target_distance,
+                    odom_distance_m=odom_distance,
+                )
             self._transition_to(State.WAIT_FOR_MEASUREMENT)
             return
 
@@ -329,14 +418,34 @@ class OdomLinearCalibrator(Node):
             else self._current_odom_distance_value()
         )
         if odom_distance <= MINIMUM_ODOM_DISTANCE_FOR_SCALE:
-            self.get_logger().error(
+            message = (
                 f'Cannot calculate K_{self._params.axis} because D_odom is too small: '
                 f'{odom_distance:.9f} m'
             )
+            self.get_logger().error(message)
+            self._exit_code = exit_codes.CALIBRATION_FAILED
+            self._write_result(
+                STATUS_FAILED,
+                odom_distance,
+                None,
+                None,
+                message,
+            )
+            self._event_writer.error(message, odom_distance_m=odom_distance)
             return
 
         actual_distance = self._measurement_provider.get_measurement()
         k_axis = actual_distance / odom_distance
+        status = STATUS_TIMEOUT if self._motion_timed_out else STATUS_SUCCESS
+        message = 'Linear odometry scale factor calculated.'
+        if self._motion_timed_out:
+            self._exit_code = exit_codes.MOTION_TIMEOUT
+            message = 'Linear odometry scale factor calculated after motion timeout.'
+
+        self._event_writer.write(
+            'measurement_received',
+            actual_distance_m=actual_distance,
+        )
 
         print(format_calibration_result(
             self._params.axis,
@@ -350,6 +459,32 @@ class OdomLinearCalibrator(Node):
             'Linear odometry scale factor calculated: '
             f'axis={self._params.axis}, direction={self._params.direction}, K={k_axis:.6f}'
         )
+        self._write_result(status, odom_distance, actual_distance, k_axis, message)
+        self._event_writer.write('result', status=status, scale_factor=k_axis)
+
+    def _write_result(
+        self,
+        status,
+        odom_distance_m,
+        actual_distance_m,
+        scale_factor,
+        message,
+    ):
+        artifacts = {
+            'events': self._artifact_writer.relative_artifact_path(
+                self._artifact_writer.events_path,
+            ),
+        }
+        result = build_calibration_result(
+            self._params,
+            status,
+            odom_distance_m,
+            actual_distance_m,
+            scale_factor,
+            artifacts,
+            message,
+        )
+        self._artifact_writer.write_result(result)
 
     def _publish_velocity(self, linear_velocity):
         cmd = TwistStamped()
@@ -389,7 +524,9 @@ def normalize_control_mode(value):
     mode = CONTROL_MODE_ALIASES.get(mode, mode)
     if mode not in VALID_CONTROL_MODES:
         valid_modes = ', '.join(VALID_CONTROL_MODES)
-        raise RuntimeError(f'control_mode must be one of: {valid_modes}')
+        raise InvalidCalibrationParameterError(
+            f'control_mode must be one of: {valid_modes}'
+        )
     return mode
 
 
@@ -416,18 +553,38 @@ def compute_target_velocity(control_mode, remaining_distance, kp, min_velocity, 
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = OdomLinearCalibrator()
+    node = None
+    exit_code = exit_codes.SUCCESS
     try:
+        rclpy.init(args=args)
+        node = OdomLinearCalibrator()
         rclpy.spin(node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
+        exit_code = node._exit_code
+    except KeyboardInterrupt:
+        exit_code = exit_codes.MEASUREMENT_CANCELLED
+    except InvalidCalibrationParameterError as exc:
+        print(f'Invalid calibration parameter: {exc}')
+        exit_code = exit_codes.INVALID_PARAMETER
+    except ExternalShutdownException:
+        if node is not None:
+            exit_code = node._exit_code
+    except Exception as exc:
+        print(f'Unhandled odometry calibration error: {exc}')
+        exit_code = exit_codes.INTERNAL_ERROR
     finally:
-        if hasattr(node._measurement_provider, 'stop'):
+        if node is not None:
+            try:
+                node._publish_stop()
+            except Exception:
+                pass
+        if node is not None and hasattr(node._measurement_provider, 'stop'):
             node._measurement_provider.stop()
-        try:
-            node.destroy_node()
-        except KeyboardInterrupt:
-            pass
+        if node is not None:
+            node._event_writer.close()
+            try:
+                node.destroy_node()
+            except KeyboardInterrupt:
+                pass
         if rclpy.ok():
             rclpy.shutdown()
+    return exit_code
