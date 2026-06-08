@@ -51,6 +51,7 @@ README는 문서 허브 역할을 한다. 필요한 주제에 따라 다음 문�
 | `docs/architecture.md` | 패키지 목적, 전체 구성, 노드 역할, 내부 module 구조 |
 | `docs/calibration.md` | mock smoke test, 실제 AMR calibration 절차, axis/direction, 결과 해석 |
 | `docs/data_recording.md` | motion_data_recorder 사용법, CSV 컬럼, reference pose, rosbag, PlotJuggler |
+| `docs/platform_inspector_integration.md` | platform-inspector managed external calibration worker 연동 계약 |
 | `docs/turtlebot3_gazebo_test.md` | TurtleBot3 Gazebo 기반 `/cmd_vel`, `/odom` end-to-end 검증 |
 | `docs/troubleshooting.md` | rqt_graph 확인, 파라미터 요약, 안전 체크리스트, 문제 해결 |
 

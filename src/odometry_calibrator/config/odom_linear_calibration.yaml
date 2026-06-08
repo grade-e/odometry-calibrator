@@ -16,6 +16,12 @@ odom_linear_calibrator:
     stop_publish_rate_hz: 10.0
     motion_timeout_sec: 20.0
     keep_alive_after_done: true
+    output_dir: logs
+    result_filename: result.json
+    events_filename: events.jsonl
+    measurement_source: cli
+    actual_distance_m: 0.0
+    result_status_mode: calculate_only
 
 test_mock_odom_publisher:
   ros__parameters:
